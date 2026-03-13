@@ -1,12 +1,13 @@
-import { StrictMode } from 'react'
-import './index.css'
-import Login from './screens/loginPage.jsx'
-import QuoridorBoard from './screens/quoridorBoard.jsx'
-import { BrowserRouter } from "react-router-dom";
+import { StrictMode } from 'react';
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import App from './App.jsx'; // <-- This is the missing piece!
+import './index.css';
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>
 );
