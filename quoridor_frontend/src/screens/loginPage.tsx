@@ -1,12 +1,28 @@
 // src/screens/loginPage.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import { useNavigate } from 'react-router-dom';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, onAuthStateChanged } from 'firebase/auth'; // Added onAuthStateChanged
 import { auth, provider } from '../firebase'; // Adjust path if needed
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+
+  // --- Session Management Listener ---
+  useEffect(() => {
+    // Listens for an existing Firebase session when the component mounts
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("Existing session found for:", user.displayName);
+        // Automatically redirect to the board if already logged in
+        navigate('/board');
+      }
+    });
+
+    // Cleanup the listener when the component unmounts
+    return () => unsubscribe();
+  }, [navigate]);
+  // -----------------------------------
 
   const handleGoogleSignIn = async () => {
     try {

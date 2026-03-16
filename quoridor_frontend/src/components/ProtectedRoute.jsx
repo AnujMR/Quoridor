@@ -1,7 +1,7 @@
 // src/components/ProtectedRoute.jsx
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { auth } from '../firebase'; // Make sure this path points to your firebase config
+import { auth } from '../firebase'; // Adjust path if needed
 import { onAuthStateChanged } from 'firebase/auth';
 
 const ProtectedRoute = ({ children }) => {
@@ -29,6 +29,7 @@ const ProtectedRoute = ({ children }) => {
     }
 
     // If no user is found, boot them back to the login page
+    // Note: Change "/login" to "/" if your login page sits at the root route
     if (!user) {
         return <Navigate to="/login" replace />;
     }

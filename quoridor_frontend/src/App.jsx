@@ -1,8 +1,8 @@
 // src/App.jsx
 import { Routes, Route } from "react-router-dom";
-import Login from './screens/loginPage.jsx';
-import QuoridorBoard from './screens/quoridorBoard.jsx';
-import ProtectedRoute from './components/ProtectedRoute.jsx'; // Import the new wrapper
+import Login from './screens/loginPage';
+import QuoridorBoard from './screens/quoridorBoard';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
     return (
