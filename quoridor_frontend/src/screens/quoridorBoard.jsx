@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 const BOARD_SIZE = 9;
+const CELL_SIZE = 62; // in pixels, for styling
 
 const Cell = (props) => {
   const {
@@ -14,16 +15,17 @@ const Cell = (props) => {
   };
 
   // Fallback colors in case the SVGs fail to load, so you can still test!
-  const playerColors = {
-    p1: "bg-blue-600",
-    p2: "bg-red-600",
-  };
+  // const playerColors = {
+  //   p1: "bg-blue-600",
+  //   p2: "bg-red-600",
+  // };
 
   return (
     <div
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, row, col)}
-      className="w-[60px] h-[60px] bg-white flex items-center justify-center relative rounded-[5px] border border-gray-800"
+      className="bg-white flex items-center justify-center relative rounded-[5px] border border-gray-800"
+      style={{ width: `${CELL_SIZE}px`, height: `${CELL_SIZE}px` }}
     >
       {/* 1. Highlight Dot for Valid Moves */}
       {isValidMove && (
@@ -139,11 +141,6 @@ const QuoridorBoard = () => {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 mt-10">
-      <h2 className="text-2xl font-bold font-sans text-gray-800">
-        Turn: Player {state.turn === "p1" ? "1" : "2"}
-      </h2>
-
       <div
         className={`grid ${state.turn === "p1" ? "bg-blue-200" : "bg-red-200"} p-2 rounded-lg gap-1 shadow-2xl`}
         style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, max-content)` }}
@@ -170,7 +167,6 @@ const QuoridorBoard = () => {
           })
         )}
       </div>
-    </div>
   );
 };
 

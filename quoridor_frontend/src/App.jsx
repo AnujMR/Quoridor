@@ -1,13 +1,25 @@
+// src/App.jsx
 import { Routes, Route } from "react-router-dom";
-import Login from './screens/loginPage.jsx'
-import QuoridorBoard from './screens/quoridorBoard.jsx'
+import Login from './screens/loginPage';
+import QuoridorBoard from './screens/quoridorBoard';
+import ProtectedRoute from './components/ProtectedRoute';
+import { GamePlayScreen } from "./screens/gamePlayScreen";
 
 function App() {
     return (
         <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/board" element={<QuoridorBoard />} />
+            
+            {/* Wrap the board component to protect it */}
+            <Route 
+                path="/board" 
+                element={
+                    <ProtectedRoute>
+                        <GamePlayScreen />
+                    </ProtectedRoute>
+                } 
+            />
         </Routes>
     );
 }
