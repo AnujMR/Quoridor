@@ -1,3 +1,5 @@
+console.log("Using TSX")
+
 // src/screens/loginPage.tsx
 import React, { useState, useEffect } from 'react'; // Added useEffect
 import { useNavigate } from 'react-router-dom';
