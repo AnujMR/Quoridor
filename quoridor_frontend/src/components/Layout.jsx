@@ -1,51 +1,51 @@
 // src/components/Layout.jsx
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase'; // Adjust path if needed
 
 export default function Layout({ children }) {
-  const location = useLocation();
-  const path = location.pathname;
+    const navigate = useNavigate();
 
-  return (
-    <div className="flex h-screen bg-[#241c15] text-[#f0d9b5] font-sans overflow-hidden">
-      
-      {/* --- GLOBAL SIDEBAR --- */}
-      <aside className="w-16 lg:w-20 bg-[#1a140f] hidden md:flex flex-col items-center py-6 border-r border-[#3d2b1f] z-20 shadow-2xl shrink-0">
-        
-        {/* Logo */}
-        <div className="mb-10 w-full flex justify-center">
-          <Link to="/home" className="hover:scale-110 transition-transform">
-            <img src="/quoridor-logo.png" alt="Logo" className="w-10 h-10 rounded shadow-md" onError={(e) => e.target.style.display = 'none'} />
-          </Link>
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            // After logging out, Firebase updates the AuthContext, 
+            // and we send the user back to the login screen
+            navigate('/login'); 
+        } catch (error) {
+            console.error("Error logging out:", error);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#241c15] flex flex-col font-sans">
+            
+            {/* --- TOP NAVIGATION BAR --- */}
+            <header className="bg-[#1a140f] border-b border-[#3d2b1f] px-6 py-4 flex justify-between items-center shadow-md z-50">
+                <div className="flex items-center gap-4">
+                    <h1 className="text-2xl font-extrabold text-white drop-shadow-[0_0_10px_rgba(212,112,10,0.5)]">
+                        Quoridor
+                    </h1>
+                </div>
+
+                <nav className="flex items-center gap-4">
+                    {/* Add links to other pages later here if you want! */}
+                    <button 
+                        onClick={handleLogout}
+                        className="bg-[#2a2118] hover:bg-[#3d2b1f] text-[#f0d9b5] border border-[#3d2b1f] px-5 py-2 rounded-lg font-bold transition-all active:scale-95"
+                    >
+                        Log Out
+                    </button>
+                </nav>
+            </header>
+
+            {/* --- MAIN PAGE CONTENT --- */}
+            <main className="flex-1 relative overflow-y-auto">
+                {/* 👇 THIS IS THE MAGIC WORD! This tells Layout where to draw the HomePage, Board, etc. */}
+                {children} 
+            </main>
+            
         </div>
-        
-        <nav className="flex flex-col gap-6 w-full px-2 h-full">
-          {/* Play Link */}
-          <Link to="/board" className="group flex flex-col items-center gap-1 transition-colors">
-            <div className={`p-3 rounded-xl border transition-colors ${path.includes('/board') ? 'bg-[#3d2b1f] border-[#d4700a] text-[#d4700a]' : 'bg-[#2a2118] border-transparent text-[#a08b74] group-hover:bg-[#3d2b1f] group-hover:text-[#d4700a]'}`}>
-              ♟️
-            </div>
-          </Link>
-
-          {/* Profile Link */}
-          <Link to="/profile" className="group flex flex-col items-center gap-1 transition-colors">
-            <div className={`p-3 rounded-xl border transition-colors ${path.includes('/profile') ? 'bg-[#3d2b1f] border-[#d4700a] text-[#d4700a]' : 'bg-[#2a2118] border-transparent text-[#a08b74] group-hover:bg-[#3d2b1f] group-hover:text-[#d4700a]'}`}>
-              👤
-            </div>
-          </Link>
-
-          {/* Settings Button (Pushed to bottom) */}
-          <button className="group flex flex-col items-center gap-1 mt-auto transition-colors">
-            <div className="bg-[#2a2118] p-3 rounded-xl border border-transparent text-[#a08b74] group-hover:bg-[#3d2b1f] group-hover:text-[#d4700a] transition-colors">
-              ⚙️
-            </div>
-          </button>
-        </nav>
-      </aside>
-
-      {/* --- DYNAMIC PAGE CONTENT GOES HERE --- */}
-      {children}
-      
-    </div>
-  );
+    );
 }

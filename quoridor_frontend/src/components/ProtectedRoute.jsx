@@ -1,7 +1,7 @@
 // src/components/ProtectedRoute.jsx
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // Adjust path if you put it elsewhere
+import { useAuth } from '../context/authContext'; // Adjust path if you put it elsewhere
 
 const ProtectedRoute = ({ children }) => {
     // Grab the user and loading state directly from your global context!

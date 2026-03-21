@@ -1,7 +1,7 @@
 // src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { app } from '../firebase'; 
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebase'; // 👉 1. Import 'auth' directly instead of 'app'
 
 const AuthContext = createContext();
 
@@ -12,7 +12,8 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const auth = getAuth(app);
+  
+  // 👉 2. We removed "const auth = getAuth(app)" because we already imported auth above!
 
   useEffect(() => {
     // This listener triggers whenever the user's sign-in state changes.
@@ -22,16 +23,15 @@ export function AuthProvider({ children }) {
     });
 
     return unsubscribe; // Cleanup listener on unmount
-  }, [auth]);
+  }, []); // 👉 3. Removed 'auth' from the dependency array to keep it clean
 
   const value = {
     currentUser,
-    loading // 1. ADD THIS: Export loading so ProtectedRoute can use it
+    loading 
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {/* 2. CHANGE THIS: Always render children so your "Loading game..." screen can actually show up! */}
       {children}
     </AuthContext.Provider>
   );
