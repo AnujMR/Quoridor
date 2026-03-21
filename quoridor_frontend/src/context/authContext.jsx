@@ -1,7 +1,7 @@
 // src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { app } from '../firebase'; 
+import { auth } from '../firebase'; 
 
 const AuthContext = createContext();
 
@@ -12,7 +12,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const auth = getAuth(app);
+  // const auth = getAuth(app);
 
   useEffect(() => {
     // This listener triggers whenever the user's sign-in state changes.
@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
     });
 
     return unsubscribe; // Cleanup listener on unmount
-  }, [auth]);
+  });
 
   const value = {
     currentUser,
