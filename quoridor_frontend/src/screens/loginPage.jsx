@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import AnimatedBoard from '../components/AnimatedBoard';
 
 // 1. Import provider and auth
@@ -16,6 +17,14 @@ export default function LoginPage() {
   const [error, setError] = useState(''); 
   
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+
+  useEffect(() => {
+    if(currentUser)
+    {
+      navigate('/home');
+    }
+  }, [currentUser, navigate])
 
   const handleLogin = async (e) => {
     e.preventDefault(); 

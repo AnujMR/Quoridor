@@ -1,25 +1,13 @@
 // src/components/ProtectedRoute.jsx
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { auth } from '../firebase'; // Adjust path if needed
-import { onAuthStateChanged } from 'firebase/auth';
+import { useAuth } from '../context/AuthContext'; // Adjust path if you put it elsewhere
 
 const ProtectedRoute = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    // Grab the user and loading state directly from your global context!
+    const { currentUser, loading } = useAuth();
 
-    useEffect(() => {
-        // This listens for login/logout events
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
-            setLoading(false);
-        });
-        
-        // Cleanup the listener when the component unmounts
-        return () => unsubscribe(); 
-    }, []);
-
-    // Show a loading screen while Firebase checks the user's status
+    // Show your awesome loading screen while Firebase figures out the session
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white text-xl">
@@ -29,12 +17,11 @@ const ProtectedRoute = ({ children }) => {
     }
 
     // If no user is found, boot them back to the login page
-    // Note: Change "/login" to "/" if your login page sits at the root route
-    if (!user) {
+    if (!currentUser) {
         return <Navigate to="/login" replace />;
     }
 
-    // If they are logged in, render the protected component (the board)
+    // If they are logged in, render the protected component
     return children;
 };
 
