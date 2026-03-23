@@ -8,10 +8,10 @@ import { auth, provider } from "../firebase";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
+  signOut // 👉 1. Added signOut here!
 } from "firebase/auth";
 
 export default function LoginPage() {
-  // 👉 1. Changed 'username' to 'email' here
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +20,8 @@ export default function LoginPage() {
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    if (currentUser) {
+    // 👉 2. Only bypass login screen if they are logged in AND verified
+    if (currentUser && currentUser.emailVerified) {
       navigate("/home");
     }
   }, [currentUser, navigate]);
@@ -29,17 +30,28 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     
-    // 👉 2. Updated to check for 'email'
     if (!email || !password)
       return setError("Please enter both an email and password.");
 
     try {
-      // 👉 3. Passed 'email' to Firebase instead of 'username'
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // 👉 3. The Verification Gatekeeper
+      if (!userCredential.user.emailVerified) {
+        // Log them right back out if they haven't clicked the link
+        await signOut(auth);
+        return setError("Please verify your email address before logging in. Check your inbox!");
+      }
+
       console.log("Successfully logged in!");
       navigate("/home");
     } catch (err) {
-      setError("Failed to login. Please check your credentials."+err);
+      // Handle incorrect passwords or missing accounts
+      if (err.code === 'auth/invalid-credential') {
+        setError("Incorrect email or password.");
+      } else {
+        setError("Failed to login. Please check your credentials.");
+      }
     }
   };
 
@@ -88,7 +100,6 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* 👉 4. Updated the input to map to 'email' and 'setEmail' */}
               <input
                 type="email"
                 placeholder="Email Address"

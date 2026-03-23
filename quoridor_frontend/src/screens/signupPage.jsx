@@ -4,26 +4,29 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import AnimatedBoard from "../components/AnimatedBoard";
 
-// 👉 1. Added updateProfile to the import!
+// 👉 1. Added sendEmailVerification and signOut to imports
 import { auth, provider } from "../firebase";
 import {
   createUserWithEmailAndPassword,
   signInWithPopup,
-  updateProfile
+  updateProfile,
+  sendEmailVerification,
+  signOut
 } from "firebase/auth";
 
 export default function SignupPage() {
-  // 👉 2. Split into three separate states for clarity
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState(""); 
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState(""); // 👉 2. Added success state
 
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    if (currentUser) {
+    // 👉 3. Only redirect if they are logged in AND verified
+    if (currentUser && currentUser.emailVerified) {
       navigate("/home");
     }
   }, [currentUser, navigate]);
@@ -31,6 +34,7 @@ export default function SignupPage() {
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccessMsg(""); // Clear previous success messages
     
     if (!username || !email || !password) {
       return setError("Please fill out all fields.");
@@ -44,13 +48,23 @@ export default function SignupPage() {
       // 1. Create the account using their email
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
-      // 👉 3. Immediately attach the username to their new Firebase profile!
+      // 2. Immediately attach the username to their new Firebase profile
       await updateProfile(userCredential.user, {
         displayName: username
       });
 
-      console.log("Successfully created account with username:", username);
-      navigate("/home");
+      // 👉 4. Send the verification email
+      await sendEmailVerification(userCredential.user);
+
+      // 👉 5. Sign them out instantly to fix the "stale username" bug
+      // and prevent them from bypassing the email check!
+      await signOut(auth);
+
+      // 👉 6. Show success message and clear the form
+      setSuccessMsg("Account created! Please check your email to verify your account before logging in.");
+      setUsername("");
+      setEmail("");
+      setPassword("");
 
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
@@ -92,13 +106,21 @@ export default function SignupPage() {
             </p>
 
             <div className="w-full bg-[#1a140f]/90 backdrop-blur-md p-6 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.5)] border border-[#3d2b1f]">
+              
+              {/* Error Message */}
               {error && (
                 <div className="bg-red-500/10 border border-red-500 text-red-500 text-sm p-3 rounded-lg mb-4">
                   {error}
                 </div>
               )}
 
-              {/* 👉 NEW: Username Input Field */}
+              {/* 👉 7. Render Success Message */}
+              {successMsg && (
+                <div className="bg-green-500/10 border border-green-500 text-green-400 text-sm p-4 rounded-lg mb-4 text-left">
+                  {successMsg}
+                </div>
+              )}
+
               <input
                 type="text"
                 placeholder="Choose a Username"
@@ -107,7 +129,6 @@ export default function SignupPage() {
                 className="w-full p-3 mb-3 rounded-lg bg-[#241c15] border border-[#3d2b1f] text-white focus:outline-none focus:border-[#d4700a] transition-colors shadow-inner"
               />
 
-              {/* Updated to use 'email' state */}
               <input
                 type="email"
                 placeholder="Email Address"
@@ -150,7 +171,6 @@ export default function SignupPage() {
                   className="w-full flex items-center justify-center gap-3 bg-[#f0d9b5] hover:bg-white text-gray-900 py-3 rounded-lg font-extrabold transition-colors shadow-sm"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
-                     {/* Google SVG paths here */}
                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
