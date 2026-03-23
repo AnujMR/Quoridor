@@ -1,8 +1,6 @@
 // src/screens/ProfilePage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { auth } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 import { useAuthStore } from '../store/useAuthStore';
 
 // Dummy data for the game history
