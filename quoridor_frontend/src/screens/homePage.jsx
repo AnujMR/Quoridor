@@ -3,21 +3,23 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function HomePage() {
-  const [user, setUser] = useState(null);
+  // const [user, setUser] = useState(null);
+  const currentUser = useAuthStore((state) => state.user);
 
   // Fetch the logged-in user from Firebase
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
+  // useEffect(() => {
+  //   const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+  //     setUser(currentUser);
+  //   });
+  //   return () => unsubscribe();
+  // }, []);
 
   // Fallbacks just in case the user hasn't set up a display name or photo yet
-  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Challenger';
-  const photoURL = user?.photoURL || '/default-avatar.png';
+  const displayName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Challenger';
+  const photoURL = currentUser?.profile || '/default_profile.jpg';
 
   return (
     // Note: No more full-screen wrapper or sidebar here! 
@@ -40,7 +42,7 @@ export default function HomePage() {
 
           <Link to="/profile" className="flex items-center gap-4 hover:bg-[#2a2118] p-2 pr-4 rounded-xl transition-all border border-transparent hover:border-[#3d2b1f]">
             <div className="text-right hidden sm:block">
-              <p className="font-bold text-sm">Rating: 1200</p>
+              <p className="font-bold text-sm">Rating: {currentUser?.rating || 1400}</p>
               <p className="text-xs text-[#d4700a] font-semibold">View Profile ›</p>
             </div>
             <div className="w-12 h-12 bg-[#3d2b1f] rounded-lg border-2 border-[#d4700a] overflow-hidden shadow-[0_0_10px_rgba(212,112,10,0.2)]">

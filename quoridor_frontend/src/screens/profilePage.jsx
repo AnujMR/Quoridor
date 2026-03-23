@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useAuthStore } from '../store/useAuthStore';
 
 // Dummy data for the game history
 const GAME_HISTORY = [
@@ -14,24 +15,26 @@ const GAME_HISTORY = [
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('Overview');
-  const [user, setUser] = useState(null);
+  // const [user, setUser] = useState(null);
+  const currentUser = useAuthStore((state) => state.user);
 
   // Fetch the logged-in user from Firebase
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
+  // useEffect(() => {
+    // const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    //   setUser(currentUser);
+    // });
+    // return () => unsubscribe();
+  // }, []);
 
   // Firebase Fallbacks
-  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Challenger';
-  const photoURL = user?.photoURL || '/default-avatar.png';
+  const displayName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Challenger';
+  const photoURL = currentUser?.profile || '/default-avatar.png';
+  
   
   // Format Firebase account creation date, or fallback to a default
-  const joinDate = user?.metadata?.creationTime 
-    ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
-    : 'Aug 5, 2022';
+  const joinDate = currentUser?.created_at 
+    ? currentUser?.created_at.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
+    : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
     // We removed the flex h-screen wrapper and the sidebar.

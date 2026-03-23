@@ -7,11 +7,32 @@ import QuoridorBoard from './screens/quoridorBoard';
 import ProfilePage from './screens/profilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { GamePlayScreen } from "./screens/gamePlayScreen";
+import { useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
+import { useAuthStore } from "./store/useAuthStore";
 
 // 👉 1. Make sure to import Layout!
 import Layout from './components/Layout'; 
+import { getUserById } from "./api";
 
 function App() {
+    const login = useAuthStore((state) => state.login);
+    const logout = useAuthStore((state) => state.logout);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                const res = await getUserById(firebaseUser.uid);
+                login(res.data);
+            } else {
+                logout();
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
     return (
         <Routes>
             {/* Public Routes */}

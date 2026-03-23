@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import AnimatedBoard from "../components/AnimatedBoard";
+import { useAuthStore } from '../store/useAuthStore';
 
 // 👉 1. Added sendEmailVerification and signOut to imports
 import { auth, provider } from "../firebase";
@@ -13,6 +14,7 @@ import {
   sendEmailVerification,
   signOut
 } from "firebase/auth";
+import { createUser } from "../api";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");
@@ -20,6 +22,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState(""); // 👉 2. Added success state
+  const login = useAuthStore((state) => state.login);
 
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -62,6 +65,19 @@ export default function SignupPage() {
 
       // 👉 6. Show success message and clear the form
       setSuccessMsg("Account created! Please check your email to verify your account before logging in.");
+      console.log("Adding user to database with email:", email);
+      var res = await createUser({ firebase_uid: userCredential.user.uid, name: userCredential.user.displayName, email: userCredential.user.email, created_at: userCredential.user.metadata.creationTime }); // Save to DB
+      res && console.log("User successfully added to database with ID:", res.id);
+      
+      login({
+        id: res.id,
+        name: res.name,
+        email: res.email,
+        firebase_uid: res.firebase_uid,
+        rating: res.rating,
+        profile: res.profile,
+        created_at: res.created_at
+      })
       setUsername("");
       setEmail("");
       setPassword("");
@@ -79,10 +95,21 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     try {
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      var res = await createUser({ firebase_uid: userCredential.user.uid, name: userCredential.user.displayName, email: userCredential.user.email, created_at: userCredential.user.metadata.creationTime }); // Save to DB
+      login({
+        id: res.id,
+        name: res.name,
+        email: res.email,
+        firebase_uid: res.firebase_uid,
+        rating: res.rating,
+        profile: res.profile,
+        created_at: res.created_at
+      })
       navigate("/home");
     } catch (err) {
       setError("Failed to sign in with Google.");
+      console.error("Google Auth Error:", err.message);
     }
   };
 

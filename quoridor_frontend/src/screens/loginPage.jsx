@@ -3,18 +3,21 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom"; 
 import { useAuth } from "../context/authContext";
 import AnimatedBoard from "../components/AnimatedBoard";
+import { useAuthStore } from '../store/useAuthStore';
 
 import { auth, provider } from "../firebase";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
-  signOut // 👉 1. Added signOut here!
+  signOut
 } from "firebase/auth";
+import { createUser, getUserById } from "../api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const login = useAuthStore((state) => state.login);
 
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -43,6 +46,16 @@ export default function LoginPage() {
         return setError("Please verify your email address before logging in. Check your inbox!");
       }
 
+      const databaseUser = await getUserById(userCredential.user.uid);
+      login({
+        id: databaseUser.id,
+        name: databaseUser.name,
+        email: databaseUser.email,
+        firebase_uid: databaseUser.firebase_uid,
+        rating: databaseUser.rating,
+        profile: databaseUser.profile,
+        created_at: databaseUser.created_at
+      })
       console.log("Successfully logged in!");
       navigate("/home");
     } catch (err) {
@@ -59,8 +72,18 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     try {
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
       console.log("Successfully logged in with Google!");
+      var res = await createUser({ firebase_uid: userCredential.user.uid, name: userCredential.user.displayName, email: userCredential.user.email, created_at: userCredential.user.metadata.creationTime }); // Save to DB
+      login({
+        id: res.id,
+        name: res.name,
+        email: res.email,
+        firebase_uid: res.firebase_uid,
+        rating: res.rating,
+        profile: res.profile,
+        created_at: res.created_at
+      })
       navigate("/home");
     } catch (err) {
       console.error("Google Auth Error:", err.message);
