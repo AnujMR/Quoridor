@@ -12,10 +12,10 @@ const {
 // Create
 router.post("/", async (req, res) => {
   try {
-    const { name, email } = req.body;
-    const user = await createUser(name, email);
+    const user = await createUser(req.body);
     res.json(user);
   } catch (err) {
+    console.error("Error creating user:", err);
     res.status(500).json({ error: err.message });
   }
 });
