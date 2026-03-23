@@ -561,11 +561,14 @@ export default function QuoridorBoard() {
     );
   };
 
-  return (
-    <>
-      {/* --- COLUMN 2: CENTER BOARD AREA --- */}
+ return (
+    // 👉 1. The Magic Wrapper: Replaced <> with a flex container spanning full height
+    <div className="flex w-full absolute inset-0">
+      
+      {/* --- COLUMN 1: CENTER BOARD AREA --- */}
       <main className="flex-1 flex flex-col items-center justify-center p-2 relative overflow-y-auto min-w-0">
-        <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: "linear-gradient(#f0d9b5 1px, transparent 1px), linear-gradient(90deg, #f0d9b5 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+        
+        {/* We can remove the background grid here since we added it to Layout.jsx! */}
 
         <div className="w-full flex flex-col items-center gap-3 relative z-10 my-auto">
           {renderPlayerTag("p2")}
@@ -749,8 +752,9 @@ export default function QuoridorBoard() {
         </div>
       </main>
 
-      {/* --- COLUMN 3: RIGHT CHAT/INFO PANEL --- */}
-      <aside className="w-80 xl:w-96 bg-[#1a140f] border-l border-[#3d2b1f] hidden lg:flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] shrink-0">
+      {/* --- COLUMN 2: RIGHT CHAT/INFO PANEL --- */}
+      {/* 👉 2. Added h-full here so the sidebar stretches correctly */}
+      <aside className="w-80 xl:w-96 bg-[#1a140f] border-l border-[#3d2b1f] hidden lg:flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] shrink-0 h-full">
         
         {/* Tabs */}
         <div className="flex bg-[#241c15] border-b border-[#3d2b1f]">
@@ -818,11 +822,11 @@ export default function QuoridorBoard() {
                         <td className="py-2.5 font-bold text-[#a08b74] tracking-wider">{pair.b || ""}</td>
                       </tr>
                     ))}
-                    {/* Fixed Invalid HTML Nesting Bug Here */}
-                    <tr ref={movesEndRef} />
                   </tbody>
                 </table>
               )}
+              {/* 👉 3. Moved this outside the table to fix a hidden React console warning */}
+              <div ref={movesEndRef} />
             </div>
           )}
         </div>
@@ -856,6 +860,6 @@ export default function QuoridorBoard() {
         </div>
 
       </aside>
-    </>
+    </div>
   );
 }

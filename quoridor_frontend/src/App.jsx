@@ -1,6 +1,7 @@
 // src/App.jsx
 import { Routes, Route } from "react-router-dom";
 import Login from './screens/loginPage';
+import SignUp from './screens/signupPage'; 
 import HomePage from './screens/homePage'; 
 import QuoridorBoard from './screens/quoridorBoard';
 import ProfilePage from './screens/profilePage';
@@ -16,6 +17,8 @@ function App() {
             {/* Public Routes */}
             <Route path="/" element={<Login />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
+            
             
             {/* Protected Routes Wrapped in Layout */}
             <Route 
