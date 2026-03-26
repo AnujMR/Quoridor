@@ -1,20 +1,18 @@
 // src/App.jsx
-import { Routes, Route } from "react-router-dom";
-import Login from './screens/loginPage';
-import SignUp from './screens/signupPage'; 
-import HomePage from './screens/homePage'; 
-import QuoridorBoard from './screens/quoridorBoard';
-import ProfilePage from './screens/profilePage';
-import ProtectedRoute from './components/ProtectedRoute';
-import GameLobby from "./screens/gameLobby";
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
 import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { useAuthStore } from "./store/useAuthStore";
-
-// 👉 1. Make sure to import Layout!
-import Layout from './components/Layout'; 
 import { getUserById } from "./api";
+
+import Login from './screens/loginPage';
+import SignUp from './screens/signupPage';
+import HomePage from './screens/homePage';
+import ProfilePage from './screens/profilePage';
+import GameLobby from "./screens/gameLobby";
+import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout';
 
 function App() {
     const login = useAuthStore((state) => state.login);
@@ -29,55 +27,33 @@ function App() {
                 logout();
             }
         });
-
         return () => unsubscribe();
-    }, []);
+    }, [login, logout]);
 
-    return (
-        <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            
-            
-            {/* Protected Routes Wrapped in Layout */}
-            <Route 
-                path="/home" 
-                element={
-                    <ProtectedRoute>
-                        {/* 👉 2. Wrap HomePage in Layout */}
-                        <Layout>
-                            <HomePage />
-                        </Layout>
-                    </ProtectedRoute>
-                } 
-            />
-            <Route 
-                path="/board" 
-                element={
-                    <ProtectedRoute>
-                        {/* 👉 3. Wrap Board in Layout */}
-                        <Layout>
-                            {/* <QuoridorBoard /> */}
-                            <GameLobby />
-                        </Layout>
-                    </ProtectedRoute>
-                } 
-            />
-            <Route 
-                path="/profile" 
-                element={
-                    <ProtectedRoute>
-                        {/* 👉 4. Wrap Profile in Layout */}
-                        <Layout>
-                            <ProfilePage />
-                        </Layout>
-                    </ProtectedRoute>
-                } 
-            />
-        </Routes>
-    );
+    // Define the router object
+    const router = createBrowserRouter([
+        { path: "/", element: <Login /> },
+        { path: "/login", element: <Login /> },
+        { path: "/signup", element: <SignUp /> },
+        {
+            // All protected routes go here
+            element: <ProtectedRoute><Outlet /></ProtectedRoute>,
+            children: [
+                {
+                    // All routes needing the Sidebar/Layout go here
+                    element: <Layout><Outlet /></Layout>,
+                    children: [
+                        { path: "/home", element: <HomePage /> },
+                        { path: "/board", element: <GameLobby /> },
+                        { path: "/profile", element: <ProfilePage /> },
+                    ]
+                }
+            ]
+        },
+        { path: "*", element: <Navigate to="/" replace /> }
+    ]);
+
+    return <RouterProvider router={router} />;
 }
 
 export default App;

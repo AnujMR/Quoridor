@@ -6,11 +6,11 @@ import { AuthProvider } from './context/authContext.jsx';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <BrowserRouter>
+  // <StrictMode>
+    // <BrowserRouter>
       <AuthProvider>
         <App />
       </AuthProvider>
-    </BrowserRouter>
-  </StrictMode>
+    // </BrowserRouter>
+  // </StrictMode>
 );

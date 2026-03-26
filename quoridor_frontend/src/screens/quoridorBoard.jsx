@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useBlocker } from "react-router-dom";
 
 // ─── Constants & Helpers ─────────────────────────────────────────────────────
 const N = 9; 
@@ -148,50 +148,56 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   // ADD THIS: Check if the current game turn matches the local player's role
   const isMyTurn = state.turn === myRole;
 
-  // 1. Create a ref to track the winner state for the cleanup function
+  // 1. Create a ref to track the latest winner status
   const winnerRef = useRef(state.winner);
 
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !winnerRef.current && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // 2. Keep the ref in sync with state
   useEffect(() => {
     winnerRef.current = state.winner;
   }, [state.winner]);
 
-  // 2. Handle Navigation and Tab Closing
   useEffect(() => {
-    const handleForfeit = () => {
-      // ONLY emit if the game was still ongoing (no winner yet)
-      // Checking the Ref ensures we don't forfeit if the game just ended
+    return () => {
+      // This runs ONLY when the component actually unmounts 
+      // (which happens after they click "Yes" in the blocker)
       if (socket && !winnerRef.current) {
         socket.emit("leave_room", { roomId });
       }
     };
+  }, [socket, roomId]);
 
-    // This handles closing the tab or browser window
+  useEffect(() => {
     const handleBeforeUnload = (e) => {
-      handleForfeit();
+      if (!winnerRef.current) {
+        e.preventDefault();
+        e.returnValue = ''; // This triggers the browser's native "Leave Site?" popup
+      }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      // This handles internal navigation (clicking links in your sidebar)
-      handleForfeit();
-    };
-  }, [socket, roomId]); // Remove [state.winner] from here!
-
-  // 3. Listen for Opponent Leaving
+  // 4. The Listener for the OTHER player
   useEffect(() => {
     if (!socket) return;
 
     const handleOpponentLeft = () => {
-      if (state.winner) return; // Ignore if game is already over
+      // Only trigger if we haven't already won naturally
+      if (winnerRef.current) return;
+
       setState(prev => ({ ...prev, winner: myRole }));
       setWinReason("forfeit");
     };
 
     socket.on("opponent_left", handleOpponentLeft);
     return () => socket.off("opponent_left", handleOpponentLeft);
-  }, [socket, myRole, state.winner]);
+  }, [socket, myRole]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -402,6 +408,11 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     );
   };
 
+  // Get the actual name of the winner (fallback to default if not found)
+  const winnerName = state.winner
+    ? (playerData?.[state.winner]?.name || (state.winner === "p1" ? "Player 1" : "Player 2"))
+    : "";
+
  return (
     // 👉 1. The Magic Wrapper: Replaced <> with a flex container spanning full height
     <div className="flex w-full absolute inset-0">
@@ -582,7 +593,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
                      🏆 YOU WIN BY FORFEIT!
                    </>
                  ) : (
-                   <>🏆 {state.winner === "p1" ? "Player 1" : "Player 2"} Wins!</>
+                     <>🏆 {winnerName} Wins!</>
                  )}
                </div>
 
@@ -709,6 +720,34 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
         </div>
 
       </aside>
+
+     {/* --- LEAVE CONFIRMATION MODAL --- */}
+     {blocker.state === "blocked" && (
+       <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+         <div className="bg-[#1a140f] border border-[#3d2b1f] p-6 rounded-xl max-w-sm w-full shadow-2xl animate-fade-in">
+           <h3 className="text-xl font-bold text-[#d4700a] mb-2 flex items-center gap-2">
+             ⚠️ Leave Game?
+           </h3>
+           <p className="text-[#a08b74] mb-6 text-sm">
+             Are you sure you want to navigate away? This will immediately forfeit the match and your opponent will win.
+           </p>
+           <div className="flex gap-3 justify-end">
+             <button
+               onClick={() => blocker.reset()}
+               className="px-4 py-2 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#f0d9b5] font-bold rounded-lg transition-colors"
+             >
+               No, stay
+             </button>
+             <button
+               onClick={() => blocker.proceed()}
+               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-[0_3px_0_#991b1b] active:translate-y-1 active:shadow-none transition-all"
+             >
+               Yes, forfeit
+             </button>
+           </div>
+         </div>
+       </div>
+     )}
     </div>
   );
 }
