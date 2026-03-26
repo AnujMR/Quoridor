@@ -6,7 +6,7 @@ import HomePage from './screens/homePage';
 import QuoridorBoard from './screens/quoridorBoard';
 import ProfilePage from './screens/profilePage';
 import ProtectedRoute from './components/ProtectedRoute';
-import { GamePlayScreen } from "./screens/gamePlayScreen";
+import GameLobby from "./screens/gameLobby";
 import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
@@ -59,7 +59,8 @@ function App() {
                     <ProtectedRoute>
                         {/* 👉 3. Wrap Board in Layout */}
                         <Layout>
-                            <QuoridorBoard />
+                            {/* <QuoridorBoard /> */}
+                            <GameLobby />
                         </Layout>
                     </ProtectedRoute>
                 } 

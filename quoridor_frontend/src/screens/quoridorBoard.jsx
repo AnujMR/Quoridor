@@ -1,295 +1,5 @@
-// import { useState } from "react";
-
-// const BOARD_SIZE = 9;
-// const CELL_SIZE = 62; // in pixels, for styling
-
-// const Cell = (props) => {
-//   const {
-//     row, col, pawnId, isValidMove,
-//     onDragStart, onDragOver, onDrop, onDragEnd
-//   } = props;
-
-//   const playerIcons = {
-//     p1: "../../pawn1.svg",
-//     p2: "../../pawn2.svg",
-//   };
-
-//   // Fallback colors in case the SVGs fail to load, so you can still test!
-//   // const playerColors = {
-//   //   p1: "bg-blue-600",
-//   //   p2: "bg-red-600",
-//   // };
-
-//   return (
-//     <div
-//       onDragOver={onDragOver}
-//       onDrop={(e) => onDrop(e, row, col)}
-//       className="bg-white flex items-center justify-center relative rounded-[5px] border border-gray-800"
-//       style={{ width: `${CELL_SIZE}px`, height: `${CELL_SIZE}px` }}
-//     >
-//       {/* 1. Highlight Dot for Valid Moves */}
-//       {isValidMove && (
-//         <div className="w-3 h-3 bg-green-500 rounded-full absolute pointer-events-none" />
-//       )}
-
-//       {/* 2. Draggable Pawn */}
-//       {pawnId && (
-//         <div
-//           draggable
-//           onDragStart={(e) => onDragStart(e, pawnId)}
-//           onDragEnd={onDragEnd}
-//           className={`w-[70%] h-[70%] cursor-grab active:cursor-grabbing`}
-//           style={{
-//             backgroundImage: `url(${playerIcons[pawnId]})`,
-//             backgroundSize: 'contain',
-//             backgroundRepeat: 'no-repeat',
-//             backgroundPosition: 'center'
-//           }}
-//         />
-//       )}
-//     </div>
-//   );
-// };
-
-// const QuoridorBoard = () => {
-//   const [state, setState] = useState({
-//     p1: { row: 0, col: 4 },
-//     p2: { row: 8, col: 4 },
-//     turn: "p1",
-//   });
-
-//   // New state variables for drag tracking
-//   const [dragging, setDragging] = useState(null);
-//   const [validMoves, setValidMoves] = useState([]);
-
-//   // Calculate valid orthogonal moves (and handle basic jumping over the opponent)
-//   const getValidMoves = (player, p1, p2) => {
-//     const pos = player === "p1" ? p1 : p2;
-//     const opp = player === "p1" ? p2 : p1;
-//     const moves = [];
-
-//     // Directions: Up, Down, Left, Right
-//     const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-
-//     directions.forEach(([dr, dc]) => {
-//       let nr = pos.row + dr;
-//       let nc = pos.col + dc;
-
-//       // Ensure move is inside the 9x9 board
-//       if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
-//         // If opponent is blocking, check if we can jump over them
-//         if (nr === opp.row && nc === opp.col) {
-//           nr += dr;
-//           nc += dc;
-//           // Ensure the jump landing spot is also within bounds
-//           if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
-//             moves.push({ row: nr, col: nc });
-//           }
-//         } else {
-//           // Normal empty cell
-//           moves.push({ row: nr, col: nc });
-//         }
-//       }
-//     });
-
-//     return moves;
-//   };
-
-//   const handleDragStart = (e, pawnId) => {
-//     // Prevent dragging if it's not this player's turn
-//     if (state.turn !== pawnId) {
-//       e.preventDefault();
-//       return;
-//     }
-
-//     setDragging(pawnId);
-//     setValidMoves(getValidMoves(pawnId, state.p1, state.p2));
-//   };
-
-//   const handleDragOver = (e) => {
-//     e.preventDefault(); // Necessary to allow elements to be "dropped" here
-//   };
-
-//   const handleDrop = (e, row, col) => {
-//     e.preventDefault();
-//     if (!dragging) return;
-
-//     // Verify the drop location is one of the valid targets
-//     const isValid = validMoves.some((m) => m.row === row && m.col === col);
-
-//     if (isValid) {
-//       setState((prev) => ({
-//         ...prev,
-//         [dragging]: { row, col },
-//         turn: prev.turn === "p1" ? "p2" : "p1", // Swap turn
-//       }));
-//     }
-
-//     // Clean up drag states
-//     setDragging(null);
-//     setValidMoves([]);
-//   };
-
-//   const handleDragEnd = () => {
-//     // Fired if the user drops the pawn in an invalid spot (outside the board)
-//     setDragging(null);
-//     setValidMoves([]);
-//   };
-
-//   const isCellValidMove = (row, col) => {
-//     return validMoves.some((m) => m.row === row && m.col === col);
-//   };
-
-//   return (
-//       <div
-//         className={`grid ${state.turn === "p1" ? "bg-blue-200" : "bg-red-200"} p-2 rounded-lg gap-1 shadow-2xl`}
-//         style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, max-content)` }}
-//       >
-//         {Array.from({ length: BOARD_SIZE }).map((_, row) =>
-//           Array.from({ length: BOARD_SIZE }).map((_, col) => {
-//             const isP1 = state.p1.row === row && state.p1.col === col;
-//             const isP2 = state.p2.row === row && state.p2.col === col;
-//             const pawnId = isP1 ? "p1" : isP2 ? "p2" : null;
-
-//             return (
-//               <Cell
-//                 key={`${row}-${col}`}
-//                 row={row}
-//                 col={col}
-//                 pawnId={pawnId}
-//                 isValidMove={isCellValidMove(row, col)}
-//                 onDragStart={handleDragStart}
-//                 onDragOver={handleDragOver}
-//                 onDrop={handleDrop}
-//                 onDragEnd={handleDragEnd}
-//               />
-//             );
-//           })
-//         )}
-//       </div>
-//   );
-// };
-
-// export default QuoridorBoard;
-
-
-
-
-
-
-
-
-
-
-// // import { useState } from "react";
-
-// // // Basic Quoridor Frontend (2-player local, no walls yet)
-// // // Built for Vite + React + Tailwind
-
-// // const BOARD_SIZE = 9;
-
-// // function createInitialState() {
-// //   return {
-// //     p1: { row: 0, col: 4 }, // top
-// //     p2: { row: 8, col: 4 }, // bottom
-// //     turn: "p1",
-// //   };
-// // }
-
-// // export default function QuoridorBoard() {
-// //   const [state, setState] = useState(createInitialState());
-
-// //   const isAdjacent = (r1, c1, r2, c2) => {
-// //     const dr = Math.abs(r1 - r2);
-// //     const dc = Math.abs(c1 - c2);
-// //     return dr + dc === 1;
-// //   };
-
-// //   const movePawn = (row, col) => {
-// //     const { p1, p2, turn } = state;
-
-// //     const current = turn === "p1" ? p1 : p2;
-// //     const opponent = turn === "p1" ? p2 : p1;
-
-// //     // Only allow adjacent move
-// //     if (!isAdjacent(current.row, current.col, row, col)) return;
-
-// //     // Can't move onto opponent
-// //     if (row === opponent.row && col === opponent.col) return;
-
-// //     const newState = { ...state };
-// //     newState[turn] = { row, col };
-// //     newState.turn = turn === "p1" ? "p2" : "p1";
-
-// //     setState(newState);
-// //   };
-
-// //   const getCellContent = (row, col) => {
-// //     if (state.p1.row === row && state.p1.col === col)
-// //       return <div className="w-6 h-6 rounded-full bg-blue-500" />;
-// //     if (state.p2.row === row && state.p2.col === col)
-// //       return <div className="w-6 h-6 rounded-full bg-red-500" />;
-// //     return null;
-// //   };
-
-// //   const checkWinner = () => {
-// //     if (state.p1.row === BOARD_SIZE - 1) return "Player 1 Wins!";
-// //     if (state.p2.row === 0) return "Player 2 Wins!";
-// //     return null;
-// //   };
-
-// //   const winner = checkWinner();
-
-// //   return (
-// //     <div className="flex flex-col items-center gap-4 p-6">
-// //       <h1 className="text-2xl font-bold">Quoridor</h1>
-
-// //       {winner && (
-// //         <div className="text-green-600 font-semibold text-lg">{winner}</div>
-// //       )}
-
-// //       <div className="text-sm text-white-600">
-// //         Turn: {state.turn === "p1" ? "Player 1 (Blue)" : "Player 2 (Red)"}
-// //       </div>
-
-// //       <div className="grid grid-cols-9 gap-1 bg-gray-700 p-2 rounded-xl">
-// //         {Array.from({ length: BOARD_SIZE }).map((_, row) =>
-// //           Array.from({ length: BOARD_SIZE }).map((_, col) => (
-// //             <div
-// //               key={`${row}-${col}`}
-// //               onClick={() => movePawn(row, col)}
-// //               className="w-12 h-12 bg-white flex items-center justify-center cursor-pointer hover:bg-gray-100"
-// //             >
-// //               {getCellContent(row, col)}
-// //             </div>
-// //           ))
-// //         )}
-// //       </div>
-
-// //       {/* <button
-// //         onClick={() => setState(createInitialState())}
-// //         className="px-4 py-2 bg-black text-white rounded-lg"
-// //       >
-// //         Reset Game
-// //       </button> */}
-// //     </div>
-// //   );
-// // }
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 // ─── Constants & Helpers ─────────────────────────────────────────────────────
 const N = 9; 
@@ -411,11 +121,12 @@ function initState() {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function QuoridorBoard() {
+export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   // Read URL parameters to toggle Timed Mode
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const isTimedMode = queryParams.get("mode") === "timed";
+  const navigate = useNavigate();
 
   const [state, setState] = useState(initState);
   const [mode, setMode] = useState("move"); 
@@ -432,6 +143,56 @@ export default function QuoridorBoard() {
     { sender: "System", text: "Match started. Good luck!" }
   ]);
 
+  const [winReason, setWinReason] = useState(null); // 'normal' | 'forfeit'
+
+  // ADD THIS: Check if the current game turn matches the local player's role
+  const isMyTurn = state.turn === myRole;
+
+  // 1. Create a ref to track the winner state for the cleanup function
+  const winnerRef = useRef(state.winner);
+
+  useEffect(() => {
+    winnerRef.current = state.winner;
+  }, [state.winner]);
+
+  // 2. Handle Navigation and Tab Closing
+  useEffect(() => {
+    const handleForfeit = () => {
+      // ONLY emit if the game was still ongoing (no winner yet)
+      // Checking the Ref ensures we don't forfeit if the game just ended
+      if (socket && !winnerRef.current) {
+        socket.emit("leave_room", { roomId });
+      }
+    };
+
+    // This handles closing the tab or browser window
+    const handleBeforeUnload = (e) => {
+      handleForfeit();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // This handles internal navigation (clicking links in your sidebar)
+      handleForfeit();
+    };
+  }, [socket, roomId]); // Remove [state.winner] from here!
+
+  // 3. Listen for Opponent Leaving
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleOpponentLeft = () => {
+      if (state.winner) return; // Ignore if game is already over
+      setState(prev => ({ ...prev, winner: myRole }));
+      setWinReason("forfeit");
+    };
+
+    socket.on("opponent_left", handleOpponentLeft);
+    return () => socket.off("opponent_left", handleOpponentLeft);
+  }, [socket, myRole, state.winner]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -441,7 +202,7 @@ export default function QuoridorBoard() {
   const opp = state.turn === "p1" ? state.p2 : state.p1;
   const validMoves = state.winner ? new Set() : getValidMoves(cur, opp, state.hWalls, state.vWalls);
 
-  const executeMove = useCallback((r, c) => {
+  const executeMove = useCallback((r, c, isFromSocket = false) => {
     setState(prev => {
       const notation = coordsToNotation(r, c);
       const ns = {
@@ -456,36 +217,51 @@ export default function QuoridorBoard() {
     });
     setSelected(false);
     draggingRef.current = false;
-  }, []);
+
+    // EMIT TO SERVER IF IT'S A LOCAL MOVE
+    if (!isFromSocket && socket) {
+      socket.emit("game_action", {
+        roomId,
+        action: { type: "PAWN_MOVE", r, c }
+      });
+    }
+  }, [socket, roomId]);
 
   const handleCellClick = useCallback((r, c) => {
+    if (!isMyTurn || state.winner || mode !== "move") return;
     if (state.winner || mode !== "move") return;
     const isCurrentPawn = r === cur.row && c === cur.col;
     if (isCurrentPawn) { setSelected(s => !s); return; }
     if (selected && validMoves.has(`${r},${c}`)) {
       executeMove(r, c);
     }
-  }, [state, mode, cur, selected, validMoves, executeMove]);
+  }, [state, mode, cur, selected, validMoves, executeMove, isMyTurn]);
 
   const handleDragStart = (e) => {
+    if (!isMyTurn || state.winner || mode !== "move") { e.preventDefault(); return; }
     if (state.winner || mode !== "move") { e.preventDefault(); return; }
     setSelected(true);
     draggingRef.current = true;
   };
 
   const handleDrop = (r, c) => {
+    if (!isMyTurn) return;
     if (draggingRef.current && validMoves.has(`${r},${c}`)) {
       executeMove(r, c);
     }
     draggingRef.current = false;
   };
 
-  const handleWallClick = useCallback((type, r, c) => {
+  const handleWallClick = useCallback((type, r, c, isFromSocket = false) => {
     if (state.winner || cur.walls <= 0) return;
-    const ok = type === "h"
-      ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2)
-      : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
-    if (!ok) return;
+
+    // If it's a local move, validate it. If it's from the socket, assume valid.
+    if (!isFromSocket) {
+      const ok = type === "h"
+        ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2)
+        : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
+      if (!ok) return;
+    }
 
     setState(prev => {
       const notation = coordsToNotation(r, c, type);
@@ -500,7 +276,38 @@ export default function QuoridorBoard() {
         moveHistory: [...prev.moveHistory, notation]
       };
     });
-  }, [state, cur]);
+
+    // EMIT TO SERVER IF IT'S A LOCAL MOVE
+    if (!isFromSocket && socket) {
+      socket.emit("game_action", {
+        roomId,
+        action: { type: "WALL_PLACE", wallType: type, r, c }
+      });
+    }
+  }, [state, cur, socket, roomId]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleOpponentAction = (data) => {
+      const { action } = data;
+
+      // The opponent moved their pawn
+      if (action.type === "PAWN_MOVE") {
+        executeMove(action.r, action.c, true); // true = isFromSocket
+      }
+      // The opponent placed a wall
+      else if (action.type === "WALL_PLACE") {
+        handleWallClick(action.wallType, action.r, action.c, true);
+      }
+    };
+
+    socket.on("sync_action", handleOpponentAction);
+
+    return () => {
+      socket.off("sync_action", handleOpponentAction);
+    };
+  }, [socket, executeMove, handleWallClick]);
 
   const isWallPreviewBlocked = useCallback((type, r, c) => {
     if (type === "h") return !canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
@@ -518,9 +325,25 @@ export default function QuoridorBoard() {
   const handleChatSubmit = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    setChatMsgs([...chatMsgs, { sender: "You", text: chatInput }]);
+
+    // 1. Update local chat
+    setChatMsgs(prev => [...prev, { sender: "You", text: chatInput }]);
+
+    // 2. Emit to server
+    if (socket) {
+      socket.emit("chat_message", { roomId, text: chatInput });
+    }
     setChatInput("");
   };
+
+  // Add a listener inside a useEffect for the chat:
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("sync_chat", (msgText) => {
+      setChatMsgs(prev => [...prev, { sender: "Opponent", text: msgText }]);
+    });
+    return () => socket.off("sync_chat");
+  }, [socket]);
 
   const movePairs = [];
   for (let i = 0; i < state.moveHistory.length; i += 2) {
@@ -532,26 +355,44 @@ export default function QuoridorBoard() {
     const isP1 = playerKey === "p1";
     const isActive = state.turn === playerKey && !state.winner;
     const pData = state[playerKey];
-    
+
+    // 1. Extract dynamic data from the playerData prop
+    // Fallback to defaults if data hasn't arrived yet
+    const name = playerData?.[playerKey]?.name || (isP1 ? "Player 1" : "Player 2");
+    const rating = playerData?.[playerKey]?.rating || "1200";
+
+    // 2. Determine if this tag represents the LOCAL user (You)
+    const isMe = playerKey === myRole;
+
     return (
       <div className={`flex items-center justify-between w-full max-w-[480px] bg-[#1a140f] p-3 rounded-xl border ${isActive ? "border-[#d4700a] shadow-[0_0_15px_rgba(212,112,10,0.15)]" : "border-[#3d2b1f] opacity-80"} transition-all duration-300`}>
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg border-2 ${isActive ? "border-[#d4700a]" : "border-[#3d2b1f]"} overflow-hidden bg-[#2a2118] flex items-center justify-center text-xl`}>
-             {isP1 ? "👱‍♂️" : "🤖"}
+          <div className={`w-10 h-10 rounded-lg border-2 ${isActive ? "border-[#d4700a]" : "border-[#3d2b1f]"} overflow-hidden bg-[#2a2118] flex items-center justify-center text-xl ${myRole==="p2" ? "rotate-180" : ""}`}>
+            {/* Show "You" icon or different icons for P1/P2 */}
+            {isP1 ? "👱‍♂️" : "🤖"}
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-[#f0d9b5]">{isP1 ? "dev_69420" : "Bot_Master99"}</span>
-              <span className="text-xs text-[#a08b74]">(1200)</span>
+              {/* Dynamic Name and "You" indicator */}
+              <span className="font-bold text-[#f0d9b5]">
+                {name} {isMe && <span className="text-[10px] text-[#d4700a] ml-1">(YOU)</span>}
+              </span>
+              {/* Dynamic Rating */}
+              <span className="text-xs text-[#a08b74]">({rating})</span>
             </div>
+
+            {/* Walls Remaining Visualization */}
             <div className="flex gap-1 mt-1">
               {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className={`w-2 h-2 rounded-[1px] transition-colors ${i < pData.walls ? "bg-[#d4700a]" : "bg-[#3d2b1f]"}`} />
+                <div
+                  key={i}
+                  className={`w-2 h-2 rounded-[1px] transition-colors ${i < pData.walls ? "bg-[#d4700a]" : "bg-[#3d2b1f]"}`}
+                />
               ))}
             </div>
           </div>
         </div>
-        {/* Dynamic checking of the mode */}
+
         {isTimedMode && (
           <div className={`font-mono text-xl font-bold bg-[#2a2118] px-3 py-1 rounded-lg border ${isActive ? "text-white border-[#3d2b1f]" : "text-[#a08b74] border-transparent"}`}>
             10:00
@@ -571,7 +412,7 @@ export default function QuoridorBoard() {
         {/* We can remove the background grid here since we added it to Layout.jsx! */}
 
         <div className="w-full flex flex-col items-center gap-3 relative z-10 my-auto">
-          {renderPlayerTag("p2")}
+         {renderPlayerTag(myRole === "p1" ? "p2" : "p1")}
 
           {/* Mode Toolbar */}
           <div className="w-full max-w-[480px] flex justify-end">
@@ -603,14 +444,14 @@ export default function QuoridorBoard() {
 
           {/* THE BOARD */}
           <div 
-            className="relative bg-gradient-to-br from-[#4a3623] to-[#3a2210] rounded-xl p-3 shadow-[0_0_0_1px_rgba(61,43,31,0.5),0_0_0_4px_#1a140f,0_15px_40px_rgba(0,0,0,0.6)]"
+           className={`relative bg-gradient-to-br from-[#4a3623] to-[#3a2210] rounded-xl p-3 shadow-[0_0_0_1px_rgba(61,43,31,0.5),0_0_0_4px_#1a140f,0_15px_40px_rgba(0,0,0,0.6)] ${myRole==="p2" ? "rotate-180" : ""}`}
             style={{ cursor: mode === "move" ? "default" : "crosshair", userSelect: "none" }}
             onMouseLeave={() => setHovered(null)}
           >
             {/* Column coords */}
             <div style={{ display: "flex", paddingLeft: `${GAP / 2 + 2}px`, marginBottom: "2px" }}>
               {Array.from({ length: N }).map((_, c) => (
-                <div key={c} className="text-[#a08b74]/60 text-[9px] font-mono text-center tracking-widest uppercase" style={{ width: CELL, marginRight: c < N - 1 ? GAP : 0 }}>
+                <div key={c} className={`text-[#a08b74]/60 text-[9px] font-mono text-center tracking-widest uppercase ${myRole==="p2" ? "rotate-180" : ""}`} style={{ width: CELL, marginRight: c < N - 1 ? GAP : 0 }}>
                   {String.fromCharCode(97 + c)}
                 </div>
               ))}
@@ -621,7 +462,7 @@ export default function QuoridorBoard() {
               <div key={row}>
                 {/* Cell row */}
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div className="w-3 text-[#a08b74]/60 text-[9px] font-mono text-right mr-1.5 flex-shrink-0">{N - row}</div>
+                  <div className={`w-3 text-[#a08b74]/60 text-[9px] font-mono text-right mr-1.5 flex-shrink-0 ${myRole==="p2" ? "rotate-180" : ""}`}>{N - row}</div>
 
                   {Array.from({ length: N }).map((_, col) => {
                     const isP1Here = state.p1.row === row && state.p1.col === col;
@@ -731,23 +572,31 @@ export default function QuoridorBoard() {
               </div>
             ))}
 
-            {/* Winner Overlay */}
-            {state.winner && (
-              <div className="absolute inset-0 z-20 bg-[#1a140f]/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center animate-fade-in">
-                <div className="text-3xl font-extrabold text-[#d4700a] tracking-widest drop-shadow-[0_0_20px_rgba(212,112,10,0.6)] mb-2">
-                  🏆 {state.winner === "p1" ? "Player 1" : "Player 2"} Wins!
-                </div>
-                <button
-                  onClick={() => { setState(initState()); setMode("move"); setSelected(false); setChatMsgs([{ sender: "System", text: "Rematch started. Good luck!" }]); }}
-                  className="mt-4 px-8 py-3 bg-[#d4700a] hover:bg-[#f08a1c] text-white font-bold rounded-xl shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all"
-                >
-                  Rematch
-                </button>
-              </div>
-            )}
+           {/* Winner Overlay */}
+           {state.winner && (
+             <div className={`absolute inset-0 z-20 bg-[#1a140f]/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center animate-fade-in ${myRole === "p2" ? "rotate-180" : ""}`}>
+               <div className="text-3xl font-extrabold text-[#d4700a] tracking-widest drop-shadow-[0_0_20px_rgba(212,112,10,0.6)] mb-6 text-center px-6">
+                 {winReason === "forfeit" ? (
+                   <>
+                     <div className="text-red-500 text-sm mb-2 uppercase tracking-tighter">Opponent Left the Match</div>
+                     🏆 YOU WIN BY FORFEIT!
+                   </>
+                 ) : (
+                   <>🏆 {state.winner === "p1" ? "Player 1" : "Player 2"} Wins!</>
+                 )}
+               </div>
+
+               <button
+                 onClick={() => navigate("/")}
+                 className="px-10 py-4 bg-[#d4700a] hover:bg-[#f08a1c] text-white font-bold rounded-xl shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all"
+               >
+                 Back to home
+               </button>
+             </div>
+           )}
           </div>
 
-          {renderPlayerTag("p1")}
+          {renderPlayerTag(myRole)}
 
         </div>
       </main>
