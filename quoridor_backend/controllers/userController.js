@@ -68,10 +68,24 @@ async function deleteUser(id) {
   return result.rows[0];
 }
 
+// Search users by name (case-insensitive partial match)
+async function searchUsers(searchTerm) {
+    const query = `
+        SELECT id, name, rating, profile 
+        FROM users 
+        WHERE name ILIKE $1
+        LIMIT 10;
+    `;
+    // ILIKE means case-insensitive. % allows partial matches before/after the term
+    const result = await pool.query(query, [`%${searchTerm}%`]);
+    return result.rows;
+}
+
 module.exports = {
   createUser,
   getAllUsers,
   getUserById,
   updateUser,
   deleteUser,
+  searchUsers
 };

@@ -1,12 +1,14 @@
 const express = require("express");
 const router = express.Router();
 
+// 👇 We added searchUsers to your imports here
 const {
   createUser,
   getAllUsers,
   getUserById,
   updateUser,
   deleteUser,
+  searchUsers, 
 } = require("../controllers/userController");
 
 // Create
@@ -24,6 +26,21 @@ router.post("/", async (req, res) => {
 router.get("/", async (req, res) => {
   const users = await getAllUsers();
   res.json(users);
+});
+
+// 👇 CRITICAL FIX: The search route MUST go here, before the /:id route!
+// Search users
+router.get("/search", async (req, res) => {
+  try {
+    const { term } = req.query;
+    if (!term) return res.status(200).json([]); // Return empty if no search term
+    
+    // Notice we call searchUsers directly now
+    const users = await searchUsers(term); 
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // Read one
