@@ -29,6 +29,7 @@ export default function LoginPage() {
     }
   }, [currentUser, navigate]);
 
+  /*
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
@@ -90,7 +91,93 @@ export default function LoginPage() {
       setError("Failed to sign in with Google.");
     }
   };
+  */
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    
+    if (!email || !password)
+      return setError("Please enter both an email and password.");
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // 👉 3. The Verification Gatekeeper
+      if (!userCredential.user.emailVerified) {
+        // Log them right back out if they haven't clicked the link
+        await signOut(auth);
+        return setError("Please verify your email address before logging in. Check your inbox!");
+      }
+
+      // Fetch from your backend (using Firebase UID)
+      const res = await getUserById(userCredential.user.uid);
+      
+      // 👉 Extract data from Axios response
+      const databaseUser = res.data;
+
+      // Handle edge case: What if the user exists in Firebase but not in your Postgres DB?
+      if (!databaseUser || !databaseUser.id) {
+        await signOut(auth);
+        return setError("User profile not found in database. Please contact support.");
+      }
+
+      login({
+        id: databaseUser.id,
+        name: databaseUser.name,
+        email: databaseUser.email,
+        firebase_uid: databaseUser.firebase_uid,
+        rating: databaseUser.rating,
+        profile: databaseUser.profile,
+        created_at: databaseUser.created_at
+      });
+      
+      console.log("Successfully logged in!");
+      navigate("/home");
+    } catch (err) {
+      if (err.code === 'auth/invalid-credential') {
+        setError("Incorrect email or password.");
+      } else {
+        setError("Failed to login. Please check your credentials.");
+      }
+    }
+  };
+
+  const handleGoogleSignIn = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      const userCredential = await signInWithPopup(auth, provider);
+      console.log("Successfully logged in with Google!");
+      
+      // Google Login often acts as "Sign Up / Log In", so we upsert
+      const res = await createUser({ 
+        firebase_uid: userCredential.user.uid, 
+        name: userCredential.user.displayName, 
+        email: userCredential.user.email, 
+        created_at: userCredential.user.metadata.creationTime 
+      }); 
+      
+      // 👉 Extract data from Axios response
+      const databaseUser = res.data;
+
+      login({
+        id: databaseUser.id,
+        name: databaseUser.name,
+        email: databaseUser.email,
+        firebase_uid: databaseUser.firebase_uid,
+        rating: databaseUser.rating,
+        profile: databaseUser.profile,
+        created_at: databaseUser.created_at
+      });
+      
+      navigate("/home");
+    } catch (err) {
+      console.error("Google Auth Error:", err.message);
+      setError("Failed to sign in with Google.");
+    }
+  };
+  
   return (
     <div className="flex h-screen bg-[#241c15] text-[#f0d9b5] font-sans overflow-hidden">
       <div

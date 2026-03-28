@@ -122,6 +122,18 @@ async function updateElo(p1Uid, p2Uid, winnerUid) {
     [p2Uid]: { newRating: newRating2, diff: newRating2 - rating2 },
   };
 }
+// Search users by name (case-insensitive partial match)
+async function searchUsers(searchTerm) {
+    const query = `
+        SELECT id, name, rating, profile 
+        FROM users 
+        WHERE name ILIKE $1
+        LIMIT 10;
+    `;
+    // ILIKE means case-insensitive. % allows partial matches before/after the term
+    const result = await pool.query(query, [`%${searchTerm}%`]);
+    return result.rows;
+}
 
 module.exports = {
   createUser,
@@ -130,4 +142,5 @@ module.exports = {
   updateUser,
   deleteUser,
   updateElo,
+  searchUsers
 };
