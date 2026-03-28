@@ -1,10 +1,23 @@
 // src/screens/HomePage.jsx
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { useEffect } from 'react';
+import { getUserById } from '../api';
 
 export default function HomePage() {
   // const [user, setUser] = useState(null);
   const currentUser = useAuthStore((state) => state.user);
+  const login = useAuthStore((state) => state.login);
+
+  useEffect(() => {
+    const refreshUserData = async () => {
+      if (currentUser?.id) {
+        const res = await getUserById(currentUser.id);
+        login(res.data); // Silent update in the background
+      }
+    };
+    refreshUserData();
+  }, []);
 
   // Fetch the logged-in user from Firebase
   // useEffect(() => {
@@ -17,6 +30,7 @@ export default function HomePage() {
   // Fallbacks just in case the user hasn't set up a display name or photo yet
   const displayName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Challenger';
   const photoURL = currentUser?.profile || '/default_profile.jpg';
+  
 
   return (
     // Note: No more full-screen wrapper or sidebar here! 

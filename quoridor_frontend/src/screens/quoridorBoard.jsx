@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate, useBlocker } from "react-router-dom";
+import { useAuthStore } from "../store/useAuthStore";
 
 // ─── Constants & Helpers ─────────────────────────────────────────────────────
 const N = 9; 
@@ -122,6 +123,9 @@ function initState() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
+  const login = useAuthStore((state) => state.login);
+  const user = useAuthStore((state) => state.user);
+
   // Read URL parameters to toggle Timed Mode
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -208,6 +212,12 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
       setState(prev => ({ ...prev, winner: winnerRole }));
       setWinReason(data.reason);
       setRatingUpdates(data.ratings);
+      if(user && data.ratings) {
+      login({
+        ...user,
+        rating: data.ratings[user.id]
+      });
+    }
     };
 
     socket.on("game_over", handleGameOver);
