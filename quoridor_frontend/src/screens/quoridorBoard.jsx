@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate, useBlocker } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 
-// ─── Constants & Helpers ─────────────────────────────────────────────────────
+// Grid Size
 const N = 9; 
 
 // Converts row/col to standard Quoridor notation (e.g., e4, f5h, c3v)
@@ -12,7 +12,7 @@ const coordsToNotation = (r, c, type = "") => {
   return `${colStr}${rowStr}${type}`;
 };
 
-// ─── BFS Pathfinding ─────────────────────────────────────────────────────────
+// BFS Pathfinding
 function hasPath(sr, sc, goalRows, hWalls, vWalls) {
   const visited = new Set();
   const queue = [[sr, sc]];
@@ -50,7 +50,7 @@ function isVWallBlocking(r, c, dir, vWalls) {
   else return vWalls.has(`${r},${c - 1}`) || vWalls.has(`${r - 1},${c - 1}`);
 }
 
-// ─── Wall Validity ────────────────────────────────────────────────────────────
+// Wall Validity
 function canPlaceHWall(r, c, hWalls, vWalls, p1, p2) {
   if (r < 0 || r > N - 2 || c < 0 || c > N - 2) return false;
   if (hWalls.has(`${r},${c}`) || hWalls.has(`${r},${c - 1}`) || hWalls.has(`${r},${c + 1}`)) return false; 
@@ -67,7 +67,7 @@ function canPlaceVWall(r, c, hWalls, vWalls, p1, p2) {
   return hasPath(p1.row, p1.col, [0], hWalls, nv) && hasPath(p2.row, p2.col, [N - 1], hWalls, nv);
 }
 
-// ─── Move Validation ─────────────────────────────────────────────────────────
+// Move Validation
 function getValidMoves(cur, opp, hWalls, vWalls) {
   const moves = new Set();
   const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
@@ -121,12 +121,12 @@ function initState() {
   };
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+//  Main Component
 export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   const login = useAuthStore((state) => state.login);
   const user = useAuthStore((state) => state.user);
 
-  // Read URL parameters to toggle Timed Mode
+  // Reading URL parameters to toggle Timed Mode
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const isTimedMode = queryParams.get("mode") === "timed";
@@ -148,14 +148,12 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   ]);
 
   const [winReason, setWinReason] = useState(null); // 'normal' | 'forfeit'
-
-  // Add this near your other useState declarations
   const [ratingUpdates, setRatingUpdates] = useState(null);
 
-  // ADD THIS: Check if the current game turn matches the local player's role
+  // Checking if the current game turn matches the local player's role
   const isMyTurn = state.turn === myRole;
 
-  // 1. Create a ref to track the latest winner status
+  // Ref to track the latest winner status
   const winnerRef = useRef(state.winner);
 
   const blocker = useBlocker(
@@ -163,7 +161,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
       !winnerRef.current && currentLocation.pathname !== nextLocation.pathname
   );
 
-  // 2. Keep the ref in sync with state
+  // Keeping the ref in sync with state
   useEffect(() => {
     winnerRef.current = state.winner;
   }, [state.winner]);
@@ -182,7 +180,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     const handleBeforeUnload = (e) => {
       if (!winnerRef.current) {
         e.preventDefault();
-        e.returnValue = ''; // This triggers the browser's native "Leave Site?" popup
+        e.returnValue = ''; // Triggers the browser's native "Leave Site?" popup
       }
     };
 
@@ -190,23 +188,23 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-  // 1. Tell the server who is playing in this room
+  // Telling the server who is playing in this room
   useEffect(() => {
-    // FIX: Change .uid to .id
     if (socket && roomId && playerData?.[myRole]?.id) {
       socket.emit("join_game", {
         roomId,
-        uid: playerData[myRole].id // Pass the .id as the uid for the backend
+        uid: playerData[myRole].id,
+        game_type: isTimedMode ? "timed" : "standard",
+        created_at: new Date()
       });
     }
-  }, [socket, roomId, playerData, myRole]);
+  }, [socket, roomId, playerData, myRole, isTimedMode]);
 
-  // 2. Listen for the final Elo ratings from the server
+  // Listening for the final Elo ratings from the server
   useEffect(() => {
     if (!socket) return;
 
     const handleGameOver = (data) => {
-      // FIX: Change .uid to .id
       const winnerRole = data.winnerUid === playerData?.p1?.id ? "p1" : "p2";
 
       setState(prev => ({ ...prev, winner: winnerRole }));
@@ -224,7 +222,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     return () => socket.off("game_over", handleGameOver);
   }, [socket, playerData]);
 
-  // 4. The Listener for the OTHER player
+  // The Listener for the OTHER player
   useEffect(() => {
     if (!socket) return;
 
@@ -267,11 +265,10 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     draggingRef.current = false;
     const isWin = (myRole === "p1" && r === 0) || (myRole === "p2" && r === N - 1);
 
-    // EMIT TO SERVER IF IT'S A LOCAL MOVE
     if (!isFromSocket && socket) {
       socket.emit("game_action", {
         roomId,
-        action: { type: "PAWN_MOVE", r, c, isWin: isWin }
+        action: { type: "PAWN_MOVE", r, c, isWin: isWin },
       });
     }
   }, [socket, roomId, myRole]);
@@ -326,7 +323,6 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
       };
     });
 
-    // EMIT TO SERVER IF IT'S A LOCAL MOVE
     if (!isFromSocket && socket) {
       socket.emit("game_action", {
         roomId,
@@ -335,6 +331,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     }
   }, [state, cur, socket, roomId]);
 
+  // Listening to opponent's moves from the socket
   useEffect(() => {
     if (!socket) return;
 
@@ -371,21 +368,19 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   const vWallAt = (r, c) => state.vWalls.has(`${r},${c}`);
   const isHoveredWall = (type, r, c) => hovered && hovered.type === type && hovered.r === r && hovered.c === c;
 
+  // Chat Functionality
   const handleChatSubmit = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
 
-    // 1. Update local chat
     setChatMsgs(prev => [...prev, { sender: "You", text: chatInput }]);
-
-    // 2. Emit to server
     if (socket) {
       socket.emit("chat_message", { roomId, text: chatInput });
     }
     setChatInput("");
   };
 
-  // Add a listener inside a useEffect for the chat:
+  // Add a listener inside a useEffect for the chat
   useEffect(() => {
     if (!socket) return;
     socket.on("sync_chat", (msgText) => {
@@ -399,26 +394,26 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     movePairs.push({ w: state.moveHistory[i], b: state.moveHistory[i + 1] });
   }
 
-  // Changed to a standard helper function (instead of a React Component) to prevent unmount bugs
+
   const renderPlayerTag = (playerKey) => {
     const isP1 = playerKey === "p1";
     const isActive = state.turn === playerKey && !state.winner;
     const pData = state[playerKey];
 
-    // 1. Extract dynamic data from the playerData prop
+    // Extract dynamic data from the playerData prop
     // Fallback to defaults if data hasn't arrived yet
     const name = playerData?.[playerKey]?.name || (isP1 ? "Player 1" : "Player 2");
-    const rating = playerData?.[playerKey]?.rating || "1200";
+    const rating = playerData?.[playerKey]?.rating || "1400";
 
-    // 2. Determine if this tag represents the LOCAL user (You)
+    // Determine if this tag represents the LOCAL user (You)
     const isMe = playerKey === myRole;
 
     return (
       <div className={`flex items-center justify-between w-full max-w-[480px] bg-[#1a140f] p-3 rounded-xl border ${isActive ? "border-[#d4700a] shadow-[0_0_15px_rgba(212,112,10,0.15)]" : "border-[#3d2b1f] opacity-80"} transition-all duration-300`}>
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg border-2 ${isActive ? "border-[#d4700a]" : "border-[#3d2b1f]"} overflow-hidden bg-[#2a2118] flex items-center justify-center text-xl ${myRole==="p2" ? "rotate-180" : ""}`}>
+          <div className={`w-10 h-10 rounded-lg border-2 ${isActive ? "border-[#d4700a]" : "border-[#3d2b1f]"} overflow-hidden bg-[#2a2118] flex items-center justify-center text-xl`}>
             {/* Show "You" icon or different icons for P1/P2 */}
-            {isP1 ? "👱‍♂️" : "🤖"}
+            {isP1 ? "👱‍♂️" : "👦"}
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
@@ -457,14 +452,11 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     : "";
 
  return (
-    // 👉 1. The Magic Wrapper: Replaced <> with a flex container spanning full height
     <div className="flex w-full absolute inset-0">
       
       {/* --- COLUMN 1: CENTER BOARD AREA --- */}
       <main className="flex-1 flex flex-col items-center justify-center p-2 relative overflow-y-auto min-w-0">
         
-        {/* We can remove the background grid here since we added it to Layout.jsx! */}
-
         <div className="w-full flex flex-col items-center gap-3 relative z-10 my-auto">
          {renderPlayerTag(myRole === "p1" ? "p2" : "p1")}
 
@@ -528,7 +520,6 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
 
                     return (
                       <div key={col} style={{ display: "flex", alignItems: "center" }}>
-                        {/* Cell (Drop Target) */}
                         <div
                           onClick={() => handleCellClick(row, col)}
                           onMouseEnter={() => mode === "move" && setHovered({ type: "cell", r: row, c: col })}
@@ -640,8 +631,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
                  )}
                </div>
 
-               {/* NEW: Display the Elo Rating changes */}
-               {/* FIX: Change .uid to .id in all 5 places below */}
+               {/*Display the Elo Rating changes */}
                {ratingUpdates && playerData?.[myRole]?.id && (
                  <div className="mb-8 flex flex-col items-center bg-[#2a2118] border border-[#3d2b1f] rounded-xl p-4 shadow-lg">
                    <span className="text-[#a08b74] text-sm uppercase tracking-wider mb-1">New Rating</span>
@@ -676,7 +666,6 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
       </main>
 
       {/* --- COLUMN 2: RIGHT CHAT/INFO PANEL --- */}
-      {/* 👉 2. Added h-full here so the sidebar stretches correctly */}
       <aside className="w-80 xl:w-96 bg-[#1a140f] border-l border-[#3d2b1f] hidden lg:flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] shrink-0 h-full">
         
         {/* Tabs */}

@@ -69,7 +69,7 @@ async function deleteUser(id) {
 }
 
 async function updateElo(p1Uid, p2Uid, winnerUid) {
-  console.log(`Updating Elo: p1Uid=${p1Uid}, p2Uid=${p2Uid}, winnerUid=${winnerUid}`);
+  // console.log(`Updating Elo: p1Uid=${p1Uid}, p2Uid=${p2Uid}, winnerUid=${winnerUid}`);
 
   const p1 = await getUserById(p1Uid);
   const p2 = await getUserById(p2Uid);
@@ -115,7 +115,7 @@ async function updateElo(p1Uid, p2Uid, winnerUid) {
     p2Uid,
   ]);
 
-  console.log(`Elo updated: ${p1.name} (${rating1} -> ${newRating1}), ${p2.name} (${rating2} -> ${newRating2})`);
+  // console.log(`Elo updated: ${p1.name} (${rating1} -> ${newRating1}), ${p2.name} (${rating2} -> ${newRating2})`);
 
   return {
     [p1Uid]: { newRating: newRating1, diff: newRating1 - rating1 },

@@ -1,6 +1,7 @@
 // socketHandler.js
 const { v4: uuidv4 } = require('uuid');
 const { getUserById, updateElo } = require('./userController');
+const { insertGameHistory } = require('./gameController');
 
 // 1. Keep the queue outside the export so it persists across the life of the server
 let waitingQueue = [];
@@ -65,6 +66,7 @@ module.exports = (io) => {
 
             // 1. Instantly forward the move to the opponent so the UI feels fast
             socket.to(roomId).emit('sync_action', { action });
+            activeGames[roomId].moves_count = (activeGames[roomId].moves_count || 0) + 1;
 
             // 2. Check if the frontend flagged this move as the winning move
             if (action.isWin) {
@@ -107,12 +109,27 @@ module.exports = (io) => {
                     });
                     delete activeGames[roomId];
                 }
+
+                try {
+                    await insertGameHistory({
+                        p1_id: game.p1.uid,
+                        p2_id: game.p2.uid,
+                        winner_id: socket.uid,
+                        moves_count: game.moves_count || 0,
+                        created_at: game.created_at,
+                        completed_at: new Date(),
+                        game_type: game.game_type
+                    });
+                } catch (err) {
+                    console.error("Failed to insert game history into database:", err);
+                }
             }
         });
 
         // --- 1. JOIN GAME ---
-        socket.on('join_game', ({ roomId, uid }) => {
+        socket.on('join_game', ({ roomId, uid, game_type, created_at }) => {
             socket.join(roomId);
+            // console.log("Game joined: ", { roomId, uid, game_type, created_at });
 
             // If this room doesn't exist in our tracker yet, create it
             if (!activeGames[roomId]) {
@@ -125,6 +142,9 @@ module.exports = (io) => {
             } else if (!activeGames[roomId].p2) {
                 activeGames[roomId].p2 = { uid: uid, socketId: socket.id };
             }
+            activeGames[roomId].moves_count = 0; // Initialize move count
+            activeGames[roomId].game_type = game_type;
+            activeGames[roomId].created_at = created_at;
 
             // CRITICAL: Attach these to the socket itself so we can easily 
             // access them later if the user disconnects unexpectedly!
@@ -139,10 +159,24 @@ module.exports = (io) => {
                 try {
                     const ratings = await updateElo(game.p1.uid, game.p2.uid, winner.uid);
                     socket.to(roomId).emit('game_over', {
-                        winnerUid: winner.uid, // FIX: Changed from 'winner' to 'winnerUid'
+                        winnerUid: winner.uid,
                         reason: 'forfeit',
                         ratings
                     });
+                    try {
+                        await insertGameHistory({
+                            p1_id: game.p1.uid,
+                            p2_id: game.p2.uid,
+                            winner_id: winner.uid,
+                            moves_count: game.moves_count || 0,
+                            created_at: game.created_at,
+                            completed_at: new Date(),
+                            game_type: game.game_type
+                        });
+                    } catch (err) {
+                        console.error("Failed to insert game history into database:", err);
+                    }
+
                 } catch (err) {
                     console.error("Elo Update Error:", err);
                 }
@@ -165,6 +199,20 @@ module.exports = (io) => {
                         reason: 'forfeit',
                         ratings
                     });
+                    try {
+                        await insertGameHistory({
+                            p1_id: game.p1.uid,
+                            p2_id: game.p2.uid,
+                            winner_id: winner.uid,
+                            moves_count: game.moves_count || 0,
+                            created_at: game.created_at,
+                            completed_at: new Date(),
+                            game_type: game.game_type
+                        });
+                    } catch (err) {
+                        console.error("Failed to insert game history into database:", err);
+                    }
+
                 } catch (err) { console.error(err); }
                 delete activeGames[roomId];
             }

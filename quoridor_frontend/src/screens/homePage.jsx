@@ -11,13 +11,13 @@ export default function HomePage() {
 
   useEffect(() => {
     const refreshUserData = async () => {
-      if (currentUser?.id) {
-        const res = await getUserById(currentUser.id);
+      if (currentUser?.firebase_uid) {
+        const res = await getUserById(currentUser.firebase_uid);
         login(res.data); // Silent update in the background
       }
     };
     refreshUserData();
-  }, []);
+  }, [currentUser?.firebase_uid, login ]);
 
   // Fetch the logged-in user from Firebase
   // useEffect(() => {
