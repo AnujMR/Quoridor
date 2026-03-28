@@ -68,10 +68,66 @@ async function deleteUser(id) {
   return result.rows[0];
 }
 
+async function updateElo(p1Uid, p2Uid, winnerUid) {
+  console.log(`Updating Elo: p1Uid=${p1Uid}, p2Uid=${p2Uid}, winnerUid=${winnerUid}`);
+
+  const p1 = await getUserById(p1Uid);
+  const p2 = await getUserById(p2Uid);
+
+  if (!p1 || !p2) {
+    throw new Error("One or both users not found");
+  }
+
+  // FIX 1: Explicitly convert to Number. 
+  // This prevents string concatenation ("1400" + 16 = "140016")
+  let rating1 = Number(p1.rating) || 1400;
+  let rating2 = Number(p2.rating) || 1400;
+
+  const K = 32;
+
+  // 2. Calculate expected win probabilities
+  const expected1 = 1 / (1 + Math.pow(10, (rating2 - rating1) / 400));
+  const expected2 = 1 / (1 + Math.pow(10, (rating1 - rating2) / 400));
+
+  // 3. Determine actual scores
+  // Ensure UIDs are strings to avoid type comparison issues
+  const score1 = String(winnerUid) === String(p1Uid) ? 1 : 0;
+  const score2 = String(winnerUid) === String(p2Uid) ? 1 : 0;
+
+  // 4. Calculate new ratings
+  const newRating1 = Math.round(rating1 + K * (score1 - expected1));
+  const newRating2 = Math.round(rating2 + K * (score2 - expected2));
+
+  // FIX 2: Added a safety check for NaN before updating the DB
+  if (isNaN(newRating1) || isNaN(newRating2)) {
+    console.error("Elo calculation failed: Resulted in NaN", { rating1, rating2, expected1, score1 });
+    throw new Error("Internal calculation error: NaN");
+  }
+
+  // 5. Update database using firebase_uid
+  await pool.query("UPDATE users SET rating=$1 WHERE firebase_uid=$2", [
+    newRating1,
+    p1Uid,
+  ]);
+
+  await pool.query("UPDATE users SET rating=$1 WHERE firebase_uid=$2", [
+    newRating2,
+    p2Uid,
+  ]);
+
+  console.log(`Elo updated: ${p1.name} (${rating1} -> ${newRating1}), ${p2.name} (${rating2} -> ${newRating2})`);
+
+  return {
+    [p1Uid]: { newRating: newRating1, diff: newRating1 - rating1 },
+    [p2Uid]: { newRating: newRating2, diff: newRating2 - rating2 },
+  };
+}
+
 module.exports = {
   createUser,
   getAllUsers,
   getUserById,
   updateUser,
   deleteUser,
+  updateElo,
 };

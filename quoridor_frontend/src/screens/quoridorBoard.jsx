@@ -145,6 +145,9 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
 
   const [winReason, setWinReason] = useState(null); // 'normal' | 'forfeit'
 
+  // Add this near your other useState declarations
+  const [ratingUpdates, setRatingUpdates] = useState(null);
+
   // ADD THIS: Check if the current game turn matches the local player's role
   const isMyTurn = state.turn === myRole;
 
@@ -183,6 +186,34 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
+  // 1. Tell the server who is playing in this room
+  useEffect(() => {
+    // FIX: Change .uid to .id
+    if (socket && roomId && playerData?.[myRole]?.id) {
+      socket.emit("join_game", {
+        roomId,
+        uid: playerData[myRole].id // Pass the .id as the uid for the backend
+      });
+    }
+  }, [socket, roomId, playerData, myRole]);
+
+  // 2. Listen for the final Elo ratings from the server
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleGameOver = (data) => {
+      // FIX: Change .uid to .id
+      const winnerRole = data.winnerUid === playerData?.p1?.id ? "p1" : "p2";
+
+      setState(prev => ({ ...prev, winner: winnerRole }));
+      setWinReason(data.reason);
+      setRatingUpdates(data.ratings);
+    };
+
+    socket.on("game_over", handleGameOver);
+    return () => socket.off("game_over", handleGameOver);
+  }, [socket, playerData]);
+
   // 4. The Listener for the OTHER player
   useEffect(() => {
     if (!socket) return;
@@ -208,6 +239,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   const opp = state.turn === "p1" ? state.p2 : state.p1;
   const validMoves = state.winner ? new Set() : getValidMoves(cur, opp, state.hWalls, state.vWalls);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const executeMove = useCallback((r, c, isFromSocket = false) => {
     setState(prev => {
       const notation = coordsToNotation(r, c);
@@ -223,15 +255,16 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     });
     setSelected(false);
     draggingRef.current = false;
+    const isWin = (myRole === "p1" && r === 0) || (myRole === "p2" && r === N - 1);
 
     // EMIT TO SERVER IF IT'S A LOCAL MOVE
     if (!isFromSocket && socket) {
       socket.emit("game_action", {
         roomId,
-        action: { type: "PAWN_MOVE", r, c }
+        action: { type: "PAWN_MOVE", r, c, isWin: isWin }
       });
     }
-  }, [socket, roomId]);
+  }, [socket, roomId, myRole]);
 
   const handleCellClick = useCallback((r, c) => {
     if (!isMyTurn || state.winner || mode !== "move") return;
@@ -287,7 +320,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     if (!isFromSocket && socket) {
       socket.emit("game_action", {
         roomId,
-        action: { type: "WALL_PLACE", wallType: type, r, c }
+        action: { type: "WALL_PLACE", wallType: type, r, c, isWin: false }
       });
     }
   }, [state, cur, socket, roomId]);
@@ -596,6 +629,26 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
                      <>🏆 {winnerName} Wins!</>
                  )}
                </div>
+
+               {/* NEW: Display the Elo Rating changes */}
+               {/* FIX: Change .uid to .id in all 5 places below */}
+               {ratingUpdates && playerData?.[myRole]?.id && (
+                 <div className="mb-8 flex flex-col items-center bg-[#2a2118] border border-[#3d2b1f] rounded-xl p-4 shadow-lg">
+                   <span className="text-[#a08b74] text-sm uppercase tracking-wider mb-1">New Rating</span>
+                   <div className="flex items-center gap-3">
+                     <span className="text-2xl font-bold text-[#f0d9b5]">
+                       {ratingUpdates[playerData[myRole].id].newRating}
+                     </span>
+                     <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${ratingUpdates[playerData[myRole].id].diff >= 0
+                       ? "bg-green-500/20 text-green-400"
+                       : "bg-red-500/20 text-red-400"
+                       }`}>
+                       {ratingUpdates[playerData[myRole].id].diff >= 0 ? "+" : ""}
+                       {ratingUpdates[playerData[myRole].id].diff}
+                     </span>
+                   </div>
+                 </div>
+               )}
 
                <button
                  onClick={() => navigate("/")}

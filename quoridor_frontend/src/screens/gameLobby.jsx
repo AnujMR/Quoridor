@@ -44,6 +44,11 @@ export default function GameLobby() {
         socket.emit("start_search", { userId: currentUser.firebase_uid });
     };
 
+    const handleCancelSearch = () => {
+        setStatus("IDLE");
+        socket.emit("cancel_search");
+    }
+
     return (
         <div className="app-container">
             {status === "IDLE" && (
@@ -59,7 +64,7 @@ export default function GameLobby() {
                 <div className="loader">
                     <h2>Finding opponent...</h2>
                     <div className="spinner"></div>
-                    <button onClick={() => setStatus("IDLE")}>Cancel</button>
+                    <button onClick={handleCancelSearch}>Cancel</button>
                 </div>
             )}
 
