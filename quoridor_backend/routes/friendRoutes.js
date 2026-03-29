@@ -68,4 +68,15 @@ router.get('/:userId/pending', async (req, res) => {
     }
 });
 
+// GET /api/friends/:userId/sent
+router.get('/:userId/sent', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const requests = await friendController.getSentRequests(userId);
+        res.status(200).json(requests);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 module.exports = router;

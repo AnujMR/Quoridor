@@ -35,3 +35,5 @@ export const getFriendsList = (userId) => axios.get(`${BASE_URL}/friends/${userI
 
 // Fetch a user's pending received friend requests
 export const getPendingRequests = (userId) => axios.get(`${BASE_URL}/friends/${userId}/pending`);
+
+export const getSentRequests = (userId) => axios.get(`${BASE_URL}/friends/${userId}/sent`);

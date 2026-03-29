@@ -4,7 +4,8 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { 
   getFriendsList, 
-  getPendingRequests, 
+  getPendingRequests,
+  getSentRequests, // 👈 Imported the new API call
   sendFriendRequest, 
   acceptFriendRequest, 
   rejectFriendRequest, 
@@ -36,11 +37,26 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('Overview');
   const [friends, setFriends] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]); // 👈 State for sent requests
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // --- NEW: UI/UX STATES ---
+  const [toast, setToast] = useState(null); 
+  const [friendToRemove, setFriendToRemove] = useState(null); 
+
+  // Helper function to show beautiful toast popups
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000); // Auto-hide after 3s
+  };
+
+  useEffect(() => {
+    setActiveTab('Overview');
+  }, [userId]);
 
   // --- FETCH PROFILE DATA ---
   useEffect(() => {
@@ -53,7 +69,6 @@ export default function ProfilePage() {
           setProfileUser(currentUser);
           targetUserId = currentUser?.id;
         } else {
-          // Fetch the friend's profile from the database
           const res = await getUserById(userId);
           setProfileUser(res.data);
           targetUserId = userId;
@@ -63,10 +78,13 @@ export default function ProfilePage() {
           const friendsRes = await getFriendsList(targetUserId);
           setFriends(friendsRes.data);
 
-          // ONLY fetch pending requests if we are looking at our own profile
+          // ONLY fetch pending and sent requests if we are looking at our own profile
           if (isOwnProfile) {
             const requestsRes = await getPendingRequests(targetUserId);
             setPendingRequests(requestsRes.data);
+            
+            const sentRes = await getSentRequests(targetUserId);
+            setSentRequests(sentRes.data);
           }
         }
       } catch (error) {
@@ -92,7 +110,10 @@ export default function ProfilePage() {
     const delayDebounceFn = setTimeout(async () => {
       try {
         const res = await searchUsersByName(searchQuery);
-        const filteredResults = res.data.filter(u => u.id !== currentUser.id);
+        // Filter out ourselves AND people we already sent a request to
+        const sentIds = sentRequests.map(req => req.receiver_id);
+        const filteredResults = res.data.filter(u => u.id !== currentUser.id && !sentIds.includes(u.id));
+        
         setSearchResults(filteredResults);
       } catch (error) {
         console.error("Search failed:", error);
@@ -101,53 +122,59 @@ export default function ProfilePage() {
       }
     }, 1000);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, currentUser?.id]);
+  }, [searchQuery, currentUser?.id, sentRequests]);
 
 
-  // --- ACTION HANDLERS ---
+  // --- ACTION HANDLERS (Replaced alerts with Toasts) ---
   const handleSendRequest = async (receiverId) => {
     try {
       await sendFriendRequest({ senderId: currentUser.id, receiverId });
-      alert("Friend request sent!");
+      showToast("Friend request sent!");
       setSearchQuery(''); 
+      // Refresh sent requests
+      const sentRes = await getSentRequests(currentUser.id);
+      setSentRequests(sentRes.data);
     } catch (error) {
-      alert(error.response?.data?.error || "Failed to send request");
+      showToast(error.response?.data?.error || "Failed to send request", "error");
     }
   };
 
   const handleAccept = async (senderId) => {
     try {
       await acceptFriendRequest({ senderId, receiverId: currentUser.id });
-      // Refresh data
+      showToast("Friend request accepted!");
       const friendsRes = await getFriendsList(currentUser.id);
       setFriends(friendsRes.data);
       const requestsRes = await getPendingRequests(currentUser.id);
       setPendingRequests(requestsRes.data);
     } catch (error) {
-      alert("Failed to accept request");
+      showToast("Failed to accept request", "error");
     }
   };
 
   const handleReject = async (senderId) => {
     try {
       await rejectFriendRequest({ senderId, receiverId: currentUser.id });
-      // Refresh data
+      showToast("Friend request rejected.", "error");
       const requestsRes = await getPendingRequests(currentUser.id);
       setPendingRequests(requestsRes.data);
     } catch (error) {
-      alert("Failed to reject request");
+      showToast("Failed to reject request", "error");
     }
   };
 
-  const handleRemove = async (friendId) => {
-    if (window.confirm("Are you sure you want to remove this friend?")) {
-      try {
-        await removeFriend({ user1: currentUser.id, user2: friendId });
-        const friendsRes = await getFriendsList(currentUser.id);
-        setFriends(friendsRes.data);
-      } catch (error) {
-        alert("Failed to remove friend");
-      }
+  // 👈 New Custom Remove Flow (Replaces window.confirm)
+  const confirmAndRemoveFriend = async () => {
+    if (!friendToRemove) return;
+    try {
+      await removeFriend({ user1: currentUser.id, user2: friendToRemove.id });
+      showToast(`Removed ${friendToRemove.name} from friends.`, "error");
+      const friendsRes = await getFriendsList(currentUser.id);
+      setFriends(friendsRes.data);
+    } catch (error) {
+      showToast("Failed to remove friend", "error");
+    } finally {
+      setFriendToRemove(null); // Close modal
     }
   };
 
@@ -159,7 +186,6 @@ export default function ProfilePage() {
     return <div className="flex h-screen items-center justify-center text-[#a08b74]">User not found.</div>;
   }
 
-  // Use profileUser instead of currentUser for display
   const displayName = profileUser?.name || profileUser?.email?.split('@')[0] || 'Challenger';
   const photoURL = profileUser?.profile || '/default-avatar.png';
   const joinDate = profileUser?.created_at 
@@ -168,6 +194,43 @@ export default function ProfilePage() {
 
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+      
+      {/* 👈 CUSTOM TOAST NOTIFICATION */}
+      {toast && (
+        <div className={`fixed bottom-8 right-8 px-6 py-4 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border z-50 animate-bounce transition-all ${
+          toast.type === 'error' ? 'bg-red-900/90 border-red-500 text-red-100' : 'bg-green-900/90 border-green-500 text-green-100'
+        }`}>
+          <p className="font-bold flex items-center gap-2">
+            {toast.type === 'error' ? '⚠️' : '✅'} {toast.message}
+          </p>
+        </div>
+      )}
+
+      {/* 👈 CUSTOM REMOVE CONFIRMATION MODAL */}
+      {friendToRemove && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#1a140f] p-8 rounded-2xl border border-[#3d2b1f] max-w-sm w-full text-center shadow-2xl">
+            <div className="text-4xl mb-4">💔</div>
+            <h2 className="text-2xl font-extrabold text-white mb-2">Remove Friend?</h2>
+            <p className="text-[#a08b74] mb-8">Are you sure you want to remove <strong className="text-white">{friendToRemove.name}</strong> from your friends list?</p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setFriendToRemove(null)}
+                className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-white py-3 rounded-xl font-bold transition-colors border border-[#3d2b1f]"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmAndRemoveFriend}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold shadow-[0_4px_0_#7f1d1d] active:translate-y-1 active:shadow-none transition-all"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="absolute inset-0 opacity-5 pointer-events-none" 
            style={{ backgroundImage: 'linear-gradient(#f0d9b5 1px, transparent 1px), linear-gradient(90deg, #f0d9b5 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
       </div>
@@ -415,7 +478,7 @@ export default function ProfilePage() {
                     {friends.map((friend) => (
                       <div 
                         key={friend.id} 
-                        onClick={() => navigate(`/profile/${friend.id}`)} // 👈 MAKES CARDS CLICKABLE
+                        onClick={() => navigate(`/profile/${friend.id}`)} 
                         className="flex items-center justify-between p-4 hover:bg-[#2a2118] rounded-xl cursor-pointer transition-colors group"
                       >
                         <div className="flex items-center gap-4">
@@ -428,10 +491,10 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         
-                        {/* ONLY SHOW REMOVE BUTTON IF IT'S OUR OWN PROFILE */}
+                        {/* 👈 Replaced direct remove with Modal trigger */}
                         {isOwnProfile && (
                           <button 
-                            onClick={(e) => { e.stopPropagation(); handleRemove(friend.id); }}
+                            onClick={(e) => { e.stopPropagation(); setFriendToRemove(friend); }}
                             className="text-[#a08b74] hover:text-red-500 font-bold px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                           >
                             Remove
@@ -449,13 +512,15 @@ export default function ProfilePage() {
 
               </div>
 
-              {/* RIGHT COLUMN: PENDING REQUESTS (ONLY VISIBLE ON OWN PROFILE) */}
+              {/* RIGHT COLUMN */}
               <div className="flex flex-col gap-6">
+                
+                {/* RECEIVED REQUESTS */}
                 {isOwnProfile && (
                   <div className="bg-[#1a140f] rounded-2xl border border-[#3d2b1f] overflow-hidden">
                     <div className="p-5 border-b border-[#3d2b1f]">
                       <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
-                        Pending Requests 
+                        Received Requests 
                         {pendingRequests.length > 0 && (
                           <span className="bg-[#d4700a] text-white text-xs px-2 py-0.5 rounded-full">{pendingRequests.length}</span>
                         )}
@@ -475,16 +540,10 @@ export default function ProfilePage() {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <button 
-                              onClick={() => handleAccept(request.sender_id)}
-                              className="bg-green-600/20 text-green-500 hover:bg-green-600 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                            >
+                            <button onClick={() => handleAccept(request.sender_id)} className="bg-green-600/20 text-green-500 hover:bg-green-600 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
                               Accept
                             </button>
-                            <button 
-                              onClick={() => handleReject(request.sender_id)}
-                              className="bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                            >
+                            <button onClick={() => handleReject(request.sender_id)} className="bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
                               Reject
                             </button>
                           </div>
@@ -496,6 +555,40 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 )}
+
+                {/* 👈 NEW: SENT REQUESTS */}
+                {isOwnProfile && (
+                  <div className="bg-[#1a140f] rounded-2xl border border-[#3d2b1f] overflow-hidden">
+                    <div className="p-5 border-b border-[#3d2b1f]">
+                      <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                        Sent Requests 
+                        {sentRequests.length > 0 && (
+                          <span className="bg-[#a08b74] text-[#1a140f] text-xs px-2 py-0.5 rounded-full">{sentRequests.length}</span>
+                        )}
+                      </h2>
+                    </div>
+                    
+                    <div className="p-2 flex flex-col gap-2">
+                      {sentRequests.map((request) => (
+                        <div key={request.request_id} className="flex items-center justify-between p-4 bg-[#201812] rounded-xl border border-[#3d2b1f] opacity-75">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#2a2118] rounded-full flex items-center justify-center text-xl overflow-hidden">
+                              {request.profile ? <img src={request.profile} alt="receiver" className="w-full h-full object-cover"/> : '👤'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-white text-sm">{request.name}</p>
+                              <p className="text-xs text-[#a08b74] font-semibold">Waiting for response...</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {sentRequests.length === 0 && (
+                        <p className="p-6 text-center text-[#a08b74]">You haven't sent any requests.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           )}

@@ -123,6 +123,19 @@ async function getPendingRequests(userId) {
     return result.rows;
 }
 
+7. // Get a user's pending sent requests
+async function getSentRequests(userId) {
+    // We join with the users table to get the RECEIVER'S data (user_id2)
+    const query = `
+        SELECT f.id as request_id, u.id as receiver_id, u.name, u.rating, u.profile
+        FROM users u
+        JOIN friendships f ON u.id = f.user_id2
+        WHERE f.user_id1 = $1 
+          AND f.status = 'pending';
+    `;
+    const result = await pool.query(query, [userId]);
+    return result.rows;
+}
 
 module.exports = {
     sendFriendRequest,
@@ -130,5 +143,6 @@ module.exports = {
     rejectFriendRequest,
     removeFriend,
     getUserFriends,
-    getPendingRequests
+    getPendingRequests,
+    getSentRequests
 };
