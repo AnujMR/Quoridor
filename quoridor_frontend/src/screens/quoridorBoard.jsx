@@ -121,6 +121,16 @@ function initState() {
   };
 }
 
+// Helper to format ms into MM:SS
+const formatTime = (ms) => {
+  if (ms === null || ms === undefined) return "--:--";
+  if (ms < 0) ms = 0;
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
 //  Main Component
 export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   const login = useAuthStore((state) => state.login);
@@ -137,6 +147,11 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   const [hovered, setHovered] = useState(null); 
   const [selected, setSelected] = useState(false); 
   const [rightTab, setRightTab] = useState("chat");
+
+  // --- TIMER STATES ---
+  const [clocks, setClocks] = useState({ p1: null, p2: null });
+  const [lastSyncTime, setLastSyncTime] = useState(null); 
+  const [isClockRunning, setIsClockRunning] = useState(false);
   
   const draggingRef = useRef(false);
   const chatEndRef = useRef(null);
@@ -147,7 +162,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     { sender: "System", text: "Match started. Good luck!" }
   ]);
 
-  const [winReason, setWinReason] = useState(null); // 'normal' | 'forfeit'
+  const [winReason, setWinReason] = useState(null); // 'normal' | 'forfeit' | 'timeout'
   const [ratingUpdates, setRatingUpdates] = useState(null);
 
   // Checking if the current game turn matches the local player's role
@@ -164,12 +179,11 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   // Keeping the ref in sync with state
   useEffect(() => {
     winnerRef.current = state.winner;
+    if (state.winner) setIsClockRunning(false); // Stop clocks if game over
   }, [state.winner]);
 
   useEffect(() => {
     return () => {
-      // This runs ONLY when the component actually unmounts 
-      // (which happens after they click "Yes" in the blocker)
       if (socket && !winnerRef.current) {
         socket.emit("leave_room", { roomId });
       }
@@ -180,10 +194,9 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     const handleBeforeUnload = (e) => {
       if (!winnerRef.current) {
         e.preventDefault();
-        e.returnValue = ''; // Triggers the browser's native "Leave Site?" popup
+        e.returnValue = ''; 
       }
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
@@ -194,54 +207,93 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
       socket.emit("join_game", {
         roomId,
         uid: playerData[myRole].id,
-        game_type: isTimedMode ? "timed" : "standard",
+        game_type: isTimedMode ? "rapid" : "untimed", // Send correct type to server
         created_at: new Date()
       });
     }
   }, [socket, roomId, playerData, myRole, isTimedMode]);
 
-  // Listening for the final Elo ratings from the server
+  // --- THE SMOOTH VISUAL TICKER ---
+  useEffect(() => {
+    if (!isTimedMode || !isClockRunning || state.winner || !lastSyncTime) return;
+
+    const intervalId = setInterval(() => {
+      setClocks(prev => {
+        const timeElapsed = Date.now() - lastSyncTime;
+        return {
+          ...prev,
+          [state.turn]: Math.max(0, prev[state.turn] - timeElapsed)
+        };
+      });
+      setLastSyncTime(Date.now());
+    }, 100);
+
+    return () => clearInterval(intervalId);
+  }, [isTimedMode, isClockRunning, state.winner, state.turn, lastSyncTime]);
+
+  // --- SOCKET LISTENERS (Combined & Updated for Timers) ---
   useEffect(() => {
     if (!socket) return;
 
     const handleGameOver = (data) => {
       const winnerRole = data.winnerUid === playerData?.p1?.id ? "p1" : "p2";
-
       setState(prev => ({ ...prev, winner: winnerRole }));
       setWinReason(data.reason);
       setRatingUpdates(data.ratings);
-      if(user && data.ratings) {
-      login({
-        ...user,
-        rating: data.ratings[user.id]
-      });
-    }
+      setIsClockRunning(false); 
+      if(user && data.ratings && data.ratings[user.id])
+        {
+          login({
+            ...user, 
+            rating: data.ratings[user.id].newRating });
+        } 
+    };
+
+    const handleOpponentLeft = () => {
+      if (winnerRef.current) return;
+      setState(prev => ({ ...prev, winner: myRole }));
+      setWinReason("forfeit");
+      setIsClockRunning(false); 
+    };
+
+    // 1. Initial Clock Sync
+    const handleSyncClocks = (data) => {
+      setClocks({ p1: data.p1Time, p2: data.p2Time });
+      setLastSyncTime(Date.now());
+      setIsClockRunning(true);
+    };
+
+    // 2. Opponent Move & Clock Correction
+    const handleOpponentAction = (data) => {
+      const { action, p1Time, p2Time } = data;
+      
+      if (p1Time !== undefined) {
+        setClocks({ p1: p1Time, p2: p2Time });
+        setLastSyncTime(Date.now());
+      }
+
+      if (action.type === "PAWN_MOVE") executeMove(action.r, action.c, true);
+      else if (action.type === "WALL_PLACE") handleWallClick(action.wallType, action.r, action.c, true);
     };
 
     socket.on("game_over", handleGameOver);
-    return () => socket.off("game_over", handleGameOver);
-  }, [socket, playerData]);
-
-  // The Listener for the OTHER player
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleOpponentLeft = () => {
-      // Only trigger if we haven't already won naturally
-      if (winnerRef.current) return;
-
-      setState(prev => ({ ...prev, winner: myRole }));
-      setWinReason("forfeit");
-    };
-
     socket.on("opponent_left", handleOpponentLeft);
-    return () => socket.off("opponent_left", handleOpponentLeft);
-  }, [socket, myRole]);
+    socket.on("sync_clocks", handleSyncClocks);     
+    socket.on("sync_action", handleOpponentAction); 
+
+    return () => {
+      socket.off("game_over", handleGameOver);
+      socket.off("opponent_left", handleOpponentLeft);
+      socket.off("sync_clocks", handleSyncClocks);
+      socket.off("sync_action", handleOpponentAction);
+    };
+  }, [socket, playerData, user, login, myRole]); // Note: executeMove and handleWallClick removed from dependencies to avoid loop
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMsgs, rightTab, state.moveHistory]);
+
 
   const cur = state.turn === "p1" ? state.p1 : state.p2;
   const opp = state.turn === "p1" ? state.p2 : state.p1;
@@ -270,6 +322,8 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
         roomId,
         action: { type: "PAWN_MOVE", r, c, isWin: isWin },
       });
+      // Tell local ticker to start counting opponent's time
+      setLastSyncTime(Date.now());
     }
   }, [socket, roomId, myRole]);
 
@@ -301,7 +355,6 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   const handleWallClick = useCallback((type, r, c, isFromSocket = false) => {
     if (state.winner || cur.walls <= 0) return;
 
-    // If it's a local move, validate it. If it's from the socket, assume valid.
     if (!isFromSocket) {
       const ok = type === "h"
         ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2)
@@ -328,32 +381,10 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
         roomId,
         action: { type: "WALL_PLACE", wallType: type, r, c, isWin: false }
       });
+      // Tell local ticker to start counting opponent's time
+      setLastSyncTime(Date.now());
     }
   }, [state, cur, socket, roomId]);
-
-  // Listening to opponent's moves from the socket
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleOpponentAction = (data) => {
-      const { action } = data;
-
-      // The opponent moved their pawn
-      if (action.type === "PAWN_MOVE") {
-        executeMove(action.r, action.c, true); // true = isFromSocket
-      }
-      // The opponent placed a wall
-      else if (action.type === "WALL_PLACE") {
-        handleWallClick(action.wallType, action.r, action.c, true);
-      }
-    };
-
-    socket.on("sync_action", handleOpponentAction);
-
-    return () => {
-      socket.off("sync_action", handleOpponentAction);
-    };
-  }, [socket, executeMove, handleWallClick]);
 
   const isWallPreviewBlocked = useCallback((type, r, c) => {
     if (type === "h") return !canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
@@ -380,7 +411,6 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     setChatInput("");
   };
 
-  // Add a listener inside a useEffect for the chat
   useEffect(() => {
     if (!socket) return;
     socket.on("sync_chat", (msgText) => {
@@ -394,38 +424,32 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     movePairs.push({ w: state.moveHistory[i], b: state.moveHistory[i + 1] });
   }
 
-
   const renderPlayerTag = (playerKey) => {
     const isP1 = playerKey === "p1";
     const isActive = state.turn === playerKey && !state.winner;
     const pData = state[playerKey];
 
-    // Extract dynamic data from the playerData prop
-    // Fallback to defaults if data hasn't arrived yet
     const name = playerData?.[playerKey]?.name || (isP1 ? "Player 1" : "Player 2");
     const rating = playerData?.[playerKey]?.rating || "1400";
-
-    // Determine if this tag represents the LOCAL user (You)
     const isMe = playerKey === myRole;
+
+    const msLeft = clocks[playerKey];
+    const isLowTime = isTimedMode && isActive && msLeft !== null && msLeft <= 60000;
 
     return (
       <div className={`flex items-center justify-between w-full max-w-[480px] bg-[#1a140f] p-3 rounded-xl border ${isActive ? "border-[#d4700a] shadow-[0_0_15px_rgba(212,112,10,0.15)]" : "border-[#3d2b1f] opacity-80"} transition-all duration-300`}>
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-lg border-2 ${isActive ? "border-[#d4700a]" : "border-[#3d2b1f]"} overflow-hidden bg-[#2a2118] flex items-center justify-center text-xl`}>
-            {/* Show "You" icon or different icons for P1/P2 */}
             {isP1 ? "👱‍♂️" : "👦"}
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              {/* Dynamic Name and "You" indicator */}
               <span className="font-bold text-[#f0d9b5]">
                 {name} {isMe && <span className="text-[10px] text-[#d4700a] ml-1">(YOU)</span>}
               </span>
-              {/* Dynamic Rating */}
               <span className="text-xs text-[#a08b74]">({rating})</span>
             </div>
 
-            {/* Walls Remaining Visualization */}
             <div className="flex gap-1 mt-1">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div
@@ -438,20 +462,22 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
         </div>
 
         {isTimedMode && (
-          <div className={`font-mono text-xl font-bold bg-[#2a2118] px-3 py-1 rounded-lg border ${isActive ? "text-white border-[#3d2b1f]" : "text-[#a08b74] border-transparent"}`}>
-            10:00
+          <div className={`font-mono text-xl font-bold bg-[#2a2118] px-3 py-1 rounded-lg border transition-colors ${
+            isActive && isLowTime ? "text-red-500 border-red-500/50 animate-pulse" : 
+            isActive ? "text-white border-[#3d2b1f]" : "text-[#a08b74] border-transparent"
+          }`}>
+            {formatTime(msLeft)}
           </div>
         )}
       </div>
     );
   };
 
-  // Get the actual name of the winner (fallback to default if not found)
   const winnerName = state.winner
     ? (playerData?.[state.winner]?.name || (state.winner === "p1" ? "Player 1" : "Player 2"))
     : "";
 
- return (
+  return (
     <div className="flex w-full absolute inset-0">
       
       {/* --- COLUMN 1: CENTER BOARD AREA --- */}
@@ -626,13 +652,18 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
                      <div className="text-red-500 text-sm mb-2 uppercase tracking-tighter">Opponent Left the Match</div>
                      🏆 YOU WIN BY FORFEIT!
                    </>
+                 ) : winReason === "timeout" ? (
+                   <>
+                     <div className="text-red-500 text-sm mb-2 uppercase tracking-tighter">Opponent Ran Out Of Time</div>
+                     ⏱️ YOU WIN ON TIME!
+                   </>
                  ) : (
                      <>🏆 {winnerName} Wins!</>
                  )}
                </div>
 
                {/*Display the Elo Rating changes */}
-               {ratingUpdates && playerData?.[myRole]?.id && (
+               {ratingUpdates && playerData?.[myRole]?.id && ratingUpdates[playerData[myRole].id] &&(
                  <div className="mb-8 flex flex-col items-center bg-[#2a2118] border border-[#3d2b1f] rounded-xl p-4 shadow-lg">
                    <span className="text-[#a08b74] text-sm uppercase tracking-wider mb-1">New Rating</span>
                    <div className="flex items-center gap-3">
@@ -737,7 +768,6 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
                   </tbody>
                 </table>
               )}
-              {/* 👉 3. Moved this outside the table to fix a hidden React console warning */}
               <div ref={movesEndRef} />
             </div>
           )}
