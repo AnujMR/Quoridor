@@ -21,8 +21,14 @@ function App() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
-                const res = await getUserById(firebaseUser.uid);
-                login(res.data);
+                try {
+                    const res = await getUserById(firebaseUser.uid);
+                    if (res && res.data) {
+                        login(res.data);
+                    }
+                } catch (error) {
+                    console.error("Error fetching user data on auth change:", error);
+                }
             } else {
                 logout();
             }
@@ -45,7 +51,8 @@ function App() {
                     children: [
                         { path: "/home", element: <HomePage /> },
                         { path: "/board", element: <GameLobby /> },
-                        { path: "/profile", element: <ProfilePage /> },
+                        { path: "/profile", element: <ProfilePage /> }, // 👈 View your own profile
+                        { path: "/profile/:userId", element: <ProfilePage /> }, // 👈 NEW: View a friend's profile
                     ]
                 }
             ]
