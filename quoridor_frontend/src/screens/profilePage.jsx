@@ -9,20 +9,19 @@ import {
   acceptFriendRequest, 
   rejectFriendRequest, 
   removeFriend,
-  searchUsersByName // Import the new search function
+  searchUsersByName, // Import the new search function
+  getGameHistory
 } from '../api';
-
-// Dummy data for the game history (keeping this as-is)
-const GAME_HISTORY = [
-  { id: 1, opponent: 'ZEUSRS45', opponentRating: 504, result: 'win', moves: 29, date: 'Dec 14, 2025', flag: '🇮🇳' },
-  { id: 2, opponent: 'TacticalWall', opponentRating: 410, result: 'loss', moves: 42, date: 'Dec 12, 2025', flag: '🇺🇸' },
-  { id: 3, opponent: 'PawnPusher99', opponentRating: 395, result: 'win', moves: 18, date: 'Dec 10, 2025', flag: '🇬🇧' },
-  { id: 4, opponent: 'QuoridorKing', opponentRating: 450, result: 'draw', moves: 55, date: 'Dec 08, 2025', flag: '🇨🇦' },
-];
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('Overview');
   const currentUser = useAuthStore((state) => state.user);
+
+  // NEW: Game History States
+  const [gameHistory, setGameHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // --- NEW STATE FOR FRIENDS SYSTEM ---
   const [friends, setFriends] = useState([]);
@@ -47,9 +46,28 @@ export default function ProfilePage() {
     }
   };
 
+  // NEW: Fetch Game History Function
+  const fetchHistoryData = async () => {
+    if (!currentUser?.firebase_uid) return;
+    setIsLoadingHistory(true);
+    try {
+      const res = await getGameHistory(currentUser?.firebase_uid);
+      // Sort history so the newest games are at the top
+      const sortedHistory = (res.data || []).sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
+      setGameHistory(sortedHistory);
+    } catch (err) {
+      console.error("Failed to fetch game history:", err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
   // Run once when component mounts or currentUser changes
   useEffect(() => {
     fetchFriendsData();
+    fetchHistoryData();
   }, [currentUser?.id]);
 
   // --- DEBOUNCED SEARCH EFFECT ---
@@ -99,6 +117,7 @@ export default function ProfilePage() {
       fetchFriendsData(); // Refresh the lists
     } catch (error) {
       alert("Failed to accept request");
+      console.error(error);
     }
   };
 
@@ -108,6 +127,7 @@ export default function ProfilePage() {
       fetchFriendsData(); // Refresh the lists
     } catch (error) {
       alert("Failed to reject request");
+      console.error(error);
     }
   };
 
@@ -118,6 +138,7 @@ export default function ProfilePage() {
         fetchFriendsData(); // Refresh the list
       } catch (error) {
         alert("Failed to remove friend");
+        console.error(error);
       }
     }
   };
@@ -128,6 +149,13 @@ export default function ProfilePage() {
   const joinDate = currentUser?.created_at 
     ? new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
     : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  // 👉 NEW: Pagination calculations
+  const totalHistoryPages = Math.max(1, Math.ceil(gameHistory.length / ITEMS_PER_PAGE));
+  const paginatedHistory = gameHistory.slice(
+    (historyPage - 1) * ITEMS_PER_PAGE,
+    historyPage * ITEMS_PER_PAGE
+  );
 
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
@@ -225,56 +253,101 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Game History Table */}
-                <div className="bg-[#1a140f] rounded-2xl border border-[#3d2b1f] overflow-hidden">
-                  <div className="p-5 border-b border-[#3d2b1f]">
-                    <h2 className="text-xl font-extrabold text-white">Game History <span className="text-[#a08b74] font-normal text-lg">({GAME_HISTORY.length})</span></h2>
-                  </div>
+                {/* --- GAME HISTORY TABLE --- */}
+                <div className="bg-[#1a140f] border border-[#3d2b1f] rounded-xl p-6 shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#d4700a]/5 rounded-bl-full -z-10 group-hover:bg-[#d4700a]/10 transition-colors"></div>
+                  <h2 className="text-[#d4700a] text-xl font-bold mb-6 flex items-center gap-2">
+                    📜 Game History
+                  </h2>
+
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="text-[#a08b74] text-xs uppercase tracking-wider bg-[#201812] border-b border-[#3d2b1f]">
-                          <th className="p-4 font-bold w-16 text-center">Mode</th>
-                          <th className="p-4 font-bold">Players</th>
-                          <th className="p-4 font-bold text-center">Result</th>
-                          <th className="p-4 font-bold text-center">Moves</th>
-                          <th className="p-4 font-bold text-right">Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {GAME_HISTORY.map((game, index) => (
-                          <tr key={game.id} className={`border-b border-[#3d2b1f] hover:bg-[#2a2118] cursor-pointer transition-colors ${index % 2 === 0 ? 'bg-[#1a140f]' : 'bg-[#201812]'}`}>
-                            <td className="p-4 text-center">
-                              <span className="text-[#a08b74] text-xl">⏱️<br/><span className="text-[10px] font-bold">10 min</span></span>
-                            </td>
-                            <td className="p-4">
-                              <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-3 h-3 rounded-full bg-[#f0d9b5] shadow-sm"></div>
-                                  <span className="font-bold text-white">{game.opponent}</span>
-                                  <span className="text-[#a08b74] text-sm">({game.opponentRating})</span>
-                                  <span>{game.flag}</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <div className="w-3 h-3 rounded-full bg-[#1c1714] border border-[#a08b74] shadow-sm"></div>
-                                  <span className="font-bold text-white">{displayName}</span>
-                                  <span className="text-[#a08b74] text-sm">(1200)</span>
-                                  <span>🇮🇳</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-4 text-center">
-                              <div className="flex flex-col items-center justify-center font-extrabold text-lg">
-                                {game.result === 'win' && <span className="text-[#d4700a]">1</span>}
-                                {game.result === 'loss' && <span className="text-[#a08b74] opacity-50">0</span>}
-                                {game.result === 'draw' && <span className="text-[#f0d9b5]">½</span>}
-                              </div>
-                            </td>
-                            <td className="p-4 text-center text-[#a08b74] font-bold">{game.moves}</td>
-                            <td className="p-4 text-right text-[#a08b74] text-sm whitespace-nowrap">{game.date}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    {isLoadingHistory ? (
+                      <p className="text-[#a08b74] text-center py-4">Loading history...</p>
+                    ) : gameHistory.length === 0 ? (
+                      <p className="text-[#a08b74] text-center py-4">No games played yet.</p>
+                    ) : (
+                      <>
+                        <table className="w-full text-left border-collapse min-w-[500px]">
+                          <thead>
+                            <tr className="border-b border-[#3d2b1f] text-[#a08b74] text-sm">
+                              <th className="pb-3 font-medium">Date</th>
+                              <th className="pb-3 font-medium">Opponent</th>
+                              <th className="pb-3 font-medium">Type</th>
+                              <th className="pb-3 font-medium">Result</th>
+                              <th className="pb-3 font-medium text-right">Moves</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-sm">
+                            {paginatedHistory.map((game) => {
+                              // 1. Determine opponent ID
+                              const isP1 = String(game.player1_id) === String(currentUser?.firebase_uid);
+
+                              // 2. Determine Win/Loss/Draw
+                              let resultText = 'Draw';
+                              let resultColor = 'text-[#a08b74]';
+                              let resultBg = 'bg-[#2a2118]';
+
+                              if (game.winner_id) {
+                                if (String(game.winner_id) === String(currentUser?.firebase_uid)) {
+                                  resultText = 'Win';
+                                  resultColor = 'text-green-400';
+                                  resultBg = 'bg-green-500/10';
+                                } else {
+                                  resultText = 'Loss';
+                                  resultColor = 'text-red-400';
+                                  resultBg = 'bg-red-500/10';
+                                }
+                              }
+
+                              // 3. Format the date
+                              const dateStr = new Date(game.completed_at || game.created_at).toLocaleDateString(undefined, {
+                                year: 'numeric', month: 'short', day: 'numeric'
+                              });
+
+                              return (
+                                <tr key={game.game_id} className="border-b border-[#3d2b1f]/50 last:border-0 hover:bg-[#2a2118]/30 transition-colors">
+                                  <td className="py-4 text-[#f0d9b5] whitespace-nowrap">{dateStr}</td>
+                                  <td className="py-4 font-medium text-[#d4700a]">
+                                    {/* Note: If your backend joins the users table, you can map 'game.opponent_name' here instead */}
+                                    {isP1 ? `${game.player2_name || 'Unknown Opponent'}` : `${game.player1_name || 'Unknown Opponent'}`}
+                                  </td>
+                                  <td className="py-4 text-[#a08b74] capitalize">{game.game_type || 'Standard'}</td>
+                                  <td className="py-4">
+                                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${resultBg} ${resultColor}`}>
+                                      {resultText}
+                                    </span>
+                                  </td>
+                                  <td className="py-4 text-right text-[#f0d9b5] font-mono">{game.moves_count}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+
+                        {/* 👉 NEW: Pagination Controls */}
+                        {totalHistoryPages > 1 && (
+                          <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#3d2b1f]">
+                            <button
+                              onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                              disabled={historyPage === 1}
+                              className="px-4 py-2 bg-[#2a2118] hover:bg-[#3d2b1f] disabled:opacity-50 disabled:cursor-not-allowed text-[#f0d9b5] text-sm font-bold rounded-lg transition-colors"
+                            >
+                              &larr; Prev
+                            </button>
+                            <span className="text-[#a08b74] text-sm font-medium">
+                              Page {historyPage} of {totalHistoryPages}
+                            </span>
+                            <button
+                              onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                              disabled={historyPage === totalHistoryPages}
+                              className="px-4 py-2 bg-[#2a2118] hover:bg-[#3d2b1f] disabled:opacity-50 disabled:cursor-not-allowed text-[#f0d9b5] text-sm font-bold rounded-lg transition-colors"
+                            >
+                              Next &rarr;
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

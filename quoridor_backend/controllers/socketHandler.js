@@ -118,7 +118,9 @@ module.exports = (io) => {
                         moves_count: game.moves_count || 0,
                         created_at: game.created_at,
                         completed_at: new Date(),
-                        game_type: game.game_type
+                        game_type: game.game_type,
+                        p1_name: game.p1.name,
+                        p2_name: game.p2.name
                     });
                 } catch (err) {
                     console.error("Failed to insert game history into database:", err);
@@ -138,9 +140,9 @@ module.exports = (io) => {
 
             // Assign this player to slot p1 or p2
             if (!activeGames[roomId].p1) {
-                activeGames[roomId].p1 = { uid: uid, socketId: socket.id };
+                activeGames[roomId].p1 = { uid: uid, socketId: socket.id, name: socket.userProfile?.name || "Anonymous" };
             } else if (!activeGames[roomId].p2) {
-                activeGames[roomId].p2 = { uid: uid, socketId: socket.id };
+                activeGames[roomId].p2 = { uid: uid, socketId: socket.id, name: socket.userProfile?.name || "Anonymous" };
             }
             activeGames[roomId].moves_count = 0; // Initialize move count
             activeGames[roomId].game_type = game_type;
@@ -171,7 +173,9 @@ module.exports = (io) => {
                             moves_count: game.moves_count || 0,
                             created_at: game.created_at,
                             completed_at: new Date(),
-                            game_type: game.game_type
+                            game_type: game.game_type,
+                            p1_name: game.p1.name,
+                            p2_name: game.p2.name
                         });
                     } catch (err) {
                         console.error("Failed to insert game history into database:", err);
@@ -207,7 +211,9 @@ module.exports = (io) => {
                             moves_count: game.moves_count || 0,
                             created_at: game.created_at,
                             completed_at: new Date(),
-                            game_type: game.game_type
+                            game_type: game.game_type,
+                            p1_name: game.p1.name,
+                            p2_name: game.p2.name
                         });
                     } catch (err) {
                         console.error("Failed to insert game history into database:", err);

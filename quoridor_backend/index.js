@@ -7,6 +7,7 @@ const socketHandler = require("./controllers/socketHandler");
 
 const userRoutes = require("./routes/userRoutes");
 const friendRoutes = require('./routes/friendRoutes');
+const gameRoutes = require("./routes/gameRoutes");
 
 const app = express();
 const PORT = 5000;
@@ -17,6 +18,7 @@ app.use(express.json());
 // app.use("/api/game", gameRoutes);
 app.use("/api/users", userRoutes);
 app.use('/api/friends', friendRoutes); 
+app.use("/api/games", gameRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running");
