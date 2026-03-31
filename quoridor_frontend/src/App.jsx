@@ -12,6 +12,7 @@ import HomePage from './screens/homePage';
 import ProfilePage from './screens/profilePage';
 import GameLobby from "./screens/gameLobby";
 import ProtectedRoute from './components/ProtectedRoute';
+import LeaderboardPage from "./screens/leaderboard";
 import Layout from './components/Layout';
 
 function App() {
@@ -53,6 +54,7 @@ function App() {
                         { path: "/board", element: <GameLobby /> },
                         { path: "/profile", element: <ProfilePage /> }, // 👈 View your own profile
                         { path: "/profile/:userId", element: <ProfilePage /> }, // 👈 NEW: View a friend's profile
+                        { path: "/leaderboard", element: <LeaderboardPage /> },
                     ]
                 }
             ]
