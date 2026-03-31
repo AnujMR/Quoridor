@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-// 👇 We added searchUsers to your imports here
+// 👇 1. ADD getLeaderboard TO YOUR IMPORTS
 const {
   createUser,
   getAllUsers,
@@ -9,6 +9,7 @@ const {
   updateUser,
   deleteUser,
   searchUsers, 
+  getLeaderboard 
 } = require("../controllers/userController");
 
 // Create
@@ -28,14 +29,24 @@ router.get("/", async (req, res) => {
   res.json(users);
 });
 
-// 👇 CRITICAL FIX: The search route MUST go here, before the /:id route!
+// GET /api/users/leaderboard
+router.get('/leaderboard', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        // 👇 2. REMOVE "userController." and just call the function directly
+        const topPlayers = await getLeaderboard(limit); 
+        res.status(200).json(topPlayers);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Search users
 router.get("/search", async (req, res) => {
   try {
     const { term } = req.query;
-    if (!term) return res.status(200).json([]); // Return empty if no search term
+    if (!term) return res.status(200).json([]); 
     
-    // Notice we call searchUsers directly now
     const users = await searchUsers(term); 
     res.status(200).json(users);
   } catch (error) {

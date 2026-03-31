@@ -156,6 +156,21 @@ async function searchUsers(searchTerm) {
     return result.rows;
 }
 
+/**
+ * Fetch the top players ordered by Elo rating
+ */
+async function getLeaderboard(limit = 50) {
+  const query = `
+    SELECT id, name, rating, profile, created_at 
+    FROM users 
+    ORDER BY rating DESC 
+    LIMIT $1;
+  `;
+  const result = await pool.query(query, [limit]);
+  return result.rows;
+}
+
+
 module.exports = {
   createUser,
   getAllUsers,
@@ -163,5 +178,6 @@ module.exports = {
   updateUser,
   deleteUser,
   updateElo,
-  searchUsers
+  searchUsers,
+  getLeaderboard
 };
