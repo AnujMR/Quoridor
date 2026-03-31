@@ -94,6 +94,69 @@ function getBestBlockingWall(state) {
   return bestWall;
 }
 
+// --- AI HELPER: LEVEL 3 MASTERMIND EVALUATOR ---
+function getBestLevel3Move(state) {
+  const cur = state.p2;
+  const opp = state.p1;
+  let bestMove = null;
+  let bestScore = -Infinity; // We want to MAXIMIZE our advantage
+
+  const currentPlayerDist = getShortestPathLength(opp.row, opp.col, [0], state.hWalls, state.vWalls);
+
+  // 1. Evaluate Pawn Moves
+  const validMoves = getValidMoves(cur, opp, state.hWalls, state.vWalls);
+  for (const moveStr of validMoves) {
+    const [r, c] = moveStr.split(',').map(Number);
+    const newBotDist = getShortestPathLength(r, c, [N - 1], state.hWalls, state.vWalls);
+    
+    // Score = (Player's Distance) - (Bot's Distance). 
+    // We add 0.5 to slightly bias the bot towards moving instead of wasting walls if scores are tied.
+    const score = currentPlayerDist - newBotDist + 0.5; 
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = { action: 'move', r, c };
+    }
+  }
+
+  // 2. Evaluate Walls (Only test walls physically near the player to prevent browser lag!)
+  if (cur.walls > 0) {
+    const minR = Math.max(0, opp.row - 2);
+    const maxR = Math.min(N - 2, opp.row + 2);
+    const minC = Math.max(0, opp.col - 2);
+    const maxC = Math.min(N - 2, opp.col + 2);
+
+    const types = ['h', 'v'];
+    for (const type of types) {
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          const canPlace = type === 'h' 
+            ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2) 
+            : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
+          
+          if (canPlace) {
+            const tempHWalls = new Set(state.hWalls);
+            const tempVWalls = new Set(state.vWalls);
+            if (type === 'h') tempHWalls.add(`${r},${c}`);
+            else tempVWalls.add(`${r},${c}`);
+
+            const newPlayerDist = getShortestPathLength(opp.row, opp.col, [0], tempHWalls, tempVWalls);
+            const newBotDist = getShortestPathLength(cur.row, cur.col, [N - 1], tempHWalls, tempVWalls);
+
+            const score = newPlayerDist - newBotDist;
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestMove = { action: 'wall', type, r, c };
+            }
+          }
+        }
+      }
+    }
+  }
+  return bestMove;
+}
+
 function neighbors(r, c, hWalls, vWalls) {
   const result = [];
   if (r > 0 && !isHWallBlocking(r, c, "up", hWalls)) result.push([r - 1, c]);
@@ -465,6 +528,19 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     const thinkAndPlay = () => {
       const cur = state.p2; 
       const opp = state.p1; 
+
+
+      if (botLevel === 3) {
+        const bestMove = getBestLevel3Move(state);
+        if (bestMove) {
+          if (bestMove.action === 'wall') {
+            handleWallClick(bestMove.type, bestMove.r, bestMove.c, true);
+          } else {
+            executeMove(bestMove.r, bestMove.c, true);
+          }
+          return;
+        }
+      }
 
       // ---------------------------------------------------------
       // LEVEL 2 LOGIC: The Spiteful Blocker

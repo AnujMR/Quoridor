@@ -53,8 +53,8 @@ export default function GameLobby() {
                 },
                 p2: {
                     id: "bot",
-                    name: botLevel === "1" ? "Bot (Runner)" : "Bot (Blocker)",
-                    rating: botLevel === "1" ? 1000 : 1600,
+                    name: botLevel === "1" ? "Bot (Runner)" : botLevel === "2" ? "Bot (Blocker)" : "Bot (Mastermind)",
+                    rating: botLevel === "1" ? 1000 : botLevel === "2" ? 1600 : 2500, 
                     profile: null 
                 }
             });

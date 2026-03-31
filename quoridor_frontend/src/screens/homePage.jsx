@@ -82,13 +82,13 @@ export default function HomePage() {
             </Link>
           </div> */}
           
-          {/* Side Card: Bot Training */}
-          <div className="col-span-1 bg-[#1a140f] border border-[#3d2b1f] rounded-3xl p-6 flex flex-col shadow-xl hover:border-[#a08b74] transition-colors">
+          {/* Side Card: Bot Training
+          {/* <div className="col-span-1 bg-[#1a140f] border border-[#3d2b1f] rounded-3xl p-6 flex flex-col shadow-xl hover:border-[#a08b74] transition-colors">
             <div className="bg-[#2a2118] w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 border border-[#3d2b1f]">🤖</div>
             <h3 className="text-xl font-bold mb-2 text-white">Bot Training</h3>
             <p className="text-[#a08b74] text-sm mb-4 flex-1">Practice your pathfinding against our AI.</p>
             
-            {/* The New Difficulty Buttons */}
+            The New Difficulty Buttons 
             <div className="flex gap-2 mt-auto">
               <Link to="/board?mode=bot&level=1" className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] border border-[#3d2b1f] text-center py-3 rounded-xl font-bold text-[#a08b74] transition-colors text-sm">
                 Lvl 1: Runner
@@ -97,8 +97,28 @@ export default function HomePage() {
                 Lvl 2: Blocker
               </Link>
             </div>
+          </div> */}
+
+          {/* Side Card: Bot Training */}
+          <div className="col-span-1 bg-[#1a140f] border border-[#3d2b1f] rounded-3xl p-6 flex flex-col shadow-xl hover:border-[#a08b74] transition-colors">
+            <div className="bg-[#2a2118] w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 border border-[#3d2b1f]">🤖</div>
+            <h3 className="text-xl font-bold mb-2 text-white">Bot Training</h3>
+            <p className="text-[#a08b74] text-sm mb-4 flex-1">Practice your pathfinding against our AI.</p>
+            
+            {/* Unified 3-Level Buttons */}
+            <div className="flex gap-2 mt-auto">
+              <Link to="/board?mode=bot&level=1" className="flex-1 bg-[#2a2118] hover:bg-[#d4700a] text-[#a08b74] hover:text-white border border-[#3d2b1f] hover:border-[#d4700a] text-center py-2 rounded-xl font-bold transition-all text-xs sm:text-sm">
+                Lvl 1
+              </Link>
+              <Link to="/board?mode=bot&level=2" className="flex-1 bg-[#2a2118] hover:bg-[#d4700a] text-[#a08b74] hover:text-white border border-[#3d2b1f] hover:border-[#d4700a] text-center py-2 rounded-xl font-bold transition-all text-xs sm:text-sm">
+                Lvl 2
+              </Link>
+              <Link to="/board?mode=bot&level=3" className="flex-1 bg-[#2a2118] hover:bg-[#d4700a] text-[#a08b74] hover:text-white border border-[#3d2b1f] hover:border-[#d4700a] text-center py-2 rounded-xl font-bold transition-all text-xs sm:text-sm shadow-lg">
+                Lvl 3
+              </Link>
+            </div>
           </div>
-          
+
         </div>
 
         {/* BOTTOM ROW: Secondary Modes & Community (Changed to grid-cols-3) */}
