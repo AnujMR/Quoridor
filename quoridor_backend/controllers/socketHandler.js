@@ -3,7 +3,10 @@ const { v4: uuidv4 } = require('uuid');
 const { getUserById, updateElo } = require('./userController');
 const { insertGameHistory } = require('./gameController');
 
-let waitingQueue = [];
+let waitingQueues = {
+    'standard' : [],
+    'timed' : []
+};
 const activeGames = {};
 
 // Time Control Dictionary (in milliseconds)
@@ -73,9 +76,10 @@ module.exports = (io) => {
     io.on('connection', (socket) => {
         // console.log(`New connection: ${socket.id}`);
 
-        // --- MATCHMAKING ---
-        socket.on('start_search', async ({ userId }) => {
-            if (waitingQueue.find(s => s.id === socket.id)) return;
+        socket.on('start_search', async ({ userId, mode = 'standard' }) => {
+
+            if(!waitingQueues[mode]) mode = 'standard';
+            if (waitingQueues[mode].find(s => s.id === socket.id)) return;
 
             try {
                 const userProfile = await getUserById(userId);
@@ -85,17 +89,18 @@ module.exports = (io) => {
                     rating: userProfile?.rating || 1400
                 };
 
-                waitingQueue.push(socket);
+                waitingQueues[mode].push(socket);
+                // console.log(`${mode.toUpperCase()} Queue size: ${waitingQueues[mode].length}`);
 
-                if (waitingQueue.length >= 2) {
-                    const p1Socket = waitingQueue.shift();
-                    const p2Socket = waitingQueue.shift();
+                if (waitingQueues[mode].length >= 2) {
+                    const p1Socket = waitingQueues[mode].shift();
+                    const p2Socket = waitingQueues[mode].shift();
                     const roomId = uuidv4();
 
                     const matchData = {
                         roomId,
                         players: { p1: p1Socket.userProfile, p2: p2Socket.userProfile },
-                        game_type: 'rapid'
+                        game_type: mode === 'timed' ? 'rapid' : 'untimed' // Default matchmaking to rapid for now
                     };
 
                     p1Socket.join(roomId);
@@ -110,7 +115,10 @@ module.exports = (io) => {
         });
 
         socket.on('cancel_search', () => {
-            waitingQueue = waitingQueue.filter(s => s.id !== socket.id);
+
+            for(const queueMode in waitingQueues) {
+                waitingQueues[queueMode] = waitingQueues[queueMode].filter(s => s.id !== socket.id);
+            }
         });
 
         // --- CHAT LOGIC ---
@@ -203,7 +211,7 @@ module.exports = (io) => {
             }
         });
 
-        // --- 3. DISCONNECTS & FORFEITS ---
+        /*
         socket.on('leave_room', async ({ roomId }) => {
             const game = activeGames[roomId];
             if (game && (game.p1?.socketId === socket.id || game.p2?.socketId === socket.id)) {
@@ -212,7 +220,23 @@ module.exports = (io) => {
             }
             socket.leave(roomId);
         });
+        */
+       socket.on('leave_room', async ({ roomId }) => {
+            const game = activeGames[roomId];
+            if (game) {
+                // ✅ SAFETY CHECK: Make sure BOTH p1 and p2 exist before trying to read their UIDs
+                if (game.p1 && game.p2 && (game.p1.socketId === socket.id || game.p2.socketId === socket.id)) {
+                    const winnerUid = game.p1.socketId === socket.id ? game.p2.uid : game.p1.uid;
+                    endGameHelper(io, roomId, game, winnerUid, 'forfeit');
+                } else {
+                    // The game never fully started. Just silently clean up the room.
+                    delete activeGames[roomId];
+                }
+            }
+            socket.leave(roomId);
+        });
 
+        /*
         socket.on('disconnect', async () => {
             const roomId = socket.roomId;
             const game = activeGames[roomId];
@@ -220,6 +244,29 @@ module.exports = (io) => {
             if (game && (game.p1?.socketId === socket.id || game.p2?.socketId === socket.id)) {
                 const winnerUid = game.p1.socketId === socket.id ? game.p2.uid : game.p1.uid;
                 endGameHelper(io, roomId, game, winnerUid, 'forfeit');
+            }
+        });
+        */
+       // --- 5. DISCONNECT (Unexpected Forfeit) ---
+        socket.on('disconnect', async () => {
+            const roomId = socket.roomId;
+            const game = activeGames[roomId];
+
+            if (game) {
+                // ✅ SAME SAFETY CHECK HERE
+                if (game.p1 && game.p2) {
+                    const winnerUid = game.p1.socketId === socket.id ? game.p2.uid : game.p1.uid;
+                    endGameHelper(io, roomId, game, winnerUid, 'forfeit');
+                } else {
+                    delete activeGames[roomId];
+                }
+            }
+            
+            // Clean up matchmaking queues just in case they disconnected while searching
+            for (const queueMode in waitingQueues) {
+                if (waitingQueues[queueMode]) {
+                    waitingQueues[queueMode] = waitingQueues[queueMode].filter(s => s.id !== socket.id);
+                }
             }
         });
     });

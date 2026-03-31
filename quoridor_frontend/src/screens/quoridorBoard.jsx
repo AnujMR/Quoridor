@@ -31,6 +31,132 @@ function hasPath(sr, sc, goalRows, hWalls, vWalls) {
   return false;
 }
 
+// --- AI HELPER: Calculates exact distance to goal ---
+function getShortestPathLength(sr, sc, goalRows, hWalls, vWalls) {
+  const visited = new Set();
+  const queue = [[sr, sc, 0]]; // [row, col, distance]
+  visited.add(`${sr},${sc}`);
+
+  while (queue.length) {
+    const [r, c, dist] = queue.shift();
+    if (goalRows.includes(r)) return dist;
+
+    for (const [nr, nc] of neighbors(r, c, hWalls, vWalls)) {
+      const key = `${nr},${nc}`;
+      if (!visited.has(key)) {
+        visited.add(key);
+        queue.push([nr, nc, dist + 1]);
+      }
+    }
+  }
+  return Infinity; // Should never happen unless completely trapped
+}
+
+// --- AI HELPER: Finds the most annoying wall to place ---
+function getBestBlockingWall(state) {
+  let bestWall = null;
+  // How far are both players right now?
+  let maxPlayerDist = getShortestPathLength(state.p1.row, state.p1.col, [0], state.hWalls, state.vWalls);
+  const currentBotDist = getShortestPathLength(state.p2.row, state.p2.col, [N - 1], state.hWalls, state.vWalls);
+
+  const types = ['h', 'v'];
+  
+  // Brute-force check all 128 possible wall placements
+  for (const type of types) {
+    for (let r = 0; r < N - 1; r++) {
+      for (let c = 0; c < N - 1; c++) {
+        
+        // 1. Is this wall legally allowed?
+        const canPlace = type === 'h' 
+          ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2) 
+          : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
+        
+        if (canPlace) {
+          // 2. Simulate the board with this new wall
+          const tempHWalls = new Set(state.hWalls);
+          const tempVWalls = new Set(state.vWalls);
+          if (type === 'h') tempHWalls.add(`${r},${c}`);
+          else tempVWalls.add(`${r},${c}`);
+
+          // 3. How does this wall affect the race?
+          const newPlayerDist = getShortestPathLength(state.p1.row, state.p1.col, [0], tempHWalls, tempVWalls);
+          const newBotDist = getShortestPathLength(state.p2.row, state.p2.col, [N - 1], tempHWalls, tempVWalls);
+
+          // 4. Does it hurt the player MORE than it hurts the bot?
+          if (newPlayerDist > maxPlayerDist && (newPlayerDist - newBotDist) > (maxPlayerDist - currentBotDist)) {
+            maxPlayerDist = newPlayerDist;
+            bestWall = { type, r, c };
+          }
+        }
+      }
+    }
+  }
+  return bestWall;
+}
+
+// --- AI HELPER: LEVEL 3 MASTERMIND EVALUATOR ---
+function getBestLevel3Move(state) {
+  const cur = state.p2;
+  const opp = state.p1;
+  let bestMove = null;
+  let bestScore = -Infinity; // We want to MAXIMIZE our advantage
+
+  const currentPlayerDist = getShortestPathLength(opp.row, opp.col, [0], state.hWalls, state.vWalls);
+
+  // 1. Evaluate Pawn Moves
+  const validMoves = getValidMoves(cur, opp, state.hWalls, state.vWalls);
+  for (const moveStr of validMoves) {
+    const [r, c] = moveStr.split(',').map(Number);
+    const newBotDist = getShortestPathLength(r, c, [N - 1], state.hWalls, state.vWalls);
+    
+    // Score = (Player's Distance) - (Bot's Distance). 
+    // We add 0.5 to slightly bias the bot towards moving instead of wasting walls if scores are tied.
+    const score = currentPlayerDist - newBotDist + 0.5; 
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = { action: 'move', r, c };
+    }
+  }
+
+  // 2. Evaluate Walls (Only test walls physically near the player to prevent browser lag!)
+  if (cur.walls > 0) {
+    const minR = Math.max(0, opp.row - 2);
+    const maxR = Math.min(N - 2, opp.row + 2);
+    const minC = Math.max(0, opp.col - 2);
+    const maxC = Math.min(N - 2, opp.col + 2);
+
+    const types = ['h', 'v'];
+    for (const type of types) {
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          const canPlace = type === 'h' 
+            ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2) 
+            : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
+          
+          if (canPlace) {
+            const tempHWalls = new Set(state.hWalls);
+            const tempVWalls = new Set(state.vWalls);
+            if (type === 'h') tempHWalls.add(`${r},${c}`);
+            else tempVWalls.add(`${r},${c}`);
+
+            const newPlayerDist = getShortestPathLength(opp.row, opp.col, [0], tempHWalls, tempVWalls);
+            const newBotDist = getShortestPathLength(cur.row, cur.col, [N - 1], tempHWalls, tempVWalls);
+
+            const score = newPlayerDist - newBotDist;
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestMove = { action: 'wall', type, r, c };
+            }
+          }
+        }
+      }
+    }
+  }
+  return bestMove;
+}
+
 function neighbors(r, c, hWalls, vWalls) {
   const result = [];
   if (r > 0 && !isHWallBlocking(r, c, "up", hWalls)) result.push([r - 1, c]);
@@ -141,6 +267,8 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   const queryParams = new URLSearchParams(location.search);
   const isTimedMode = queryParams.get("mode") === "timed";
   const navigate = useNavigate();
+  const isBotMode = queryParams.get("mode") === "bot";
+  const botLevel = parseInt(queryParams.get("level")) || 2;
 
   const [state, setState] = useState(initState);
   const [mode, setMode] = useState("move"); 
@@ -173,7 +301,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
   const cur = state.turn === "p1" ? state.p1 : state.p2;
   const opp = state.turn === "p1" ? state.p2 : state.p1;
   const validMoves = state.winner ? new Set() : getValidMoves(cur, opp, state.hWalls, state.vWalls);
-
+  
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const executeMove = useCallback((r, c, isFromSocket = false) => {
     setState(prev => {
@@ -192,7 +320,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     draggingRef.current = false;
     const isWin = (myRole === "p1" && r === 0) || (myRole === "p2" && r === N - 1);
 
-    if (!isFromSocket && socket) {
+    if (!isFromSocket && socket && !isBotMode) {
       socket.emit("game_action", {
         roomId,
         action: { type: "PAWN_MOVE", r, c, isWin: isWin },
@@ -400,6 +528,74 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     return !canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
   }, [state]);
 
+
+  // ==========================================
+  // --- MASTER AI: LEVEL 1 & LEVEL 2 ---
+  // ==========================================
+  useEffect(() => {
+    if (!isBotMode || state.winner || state.turn !== "p2") return;
+
+    const thinkAndPlay = () => {
+      const cur = state.p2; 
+      const opp = state.p1; 
+
+
+      if (botLevel === 3) {
+        const bestMove = getBestLevel3Move(state);
+        if (bestMove) {
+          if (bestMove.action === 'wall') {
+            handleWallClick(bestMove.type, bestMove.r, bestMove.c, true);
+          } else {
+            executeMove(bestMove.r, bestMove.c, true);
+          }
+          return;
+        }
+      }
+
+      // ---------------------------------------------------------
+      // LEVEL 2 LOGIC: The Spiteful Blocker
+      // ---------------------------------------------------------
+      if (botLevel === 2) {
+        const botDist = getShortestPathLength(cur.row, cur.col, [N - 1], state.hWalls, state.vWalls);
+        const playerDist = getShortestPathLength(opp.row, opp.col, [0], state.hWalls, state.vWalls);
+
+        // PANIC MODE: Block the player!
+        if (playerDist <= botDist && cur.walls > 0) {
+          const bestWall = getBestBlockingWall(state);
+          if (bestWall) {
+            handleWallClick(bestWall.type, bestWall.r, bestWall.c, true); 
+            return; 
+          }
+        }
+      }
+
+      // ---------------------------------------------------------
+      // LEVEL 1 (and Level 2 Fallback) LOGIC: The Runner
+      // ---------------------------------------------------------
+      const validMoves = getValidMoves(cur, opp, state.hWalls, state.vWalls);
+      let bestMove = null;
+      let shortestDist = Infinity;
+
+      for (const moveStr of validMoves) {
+        const [r, c] = moveStr.split(',').map(Number);
+        const dist = getShortestPathLength(r, c, [N - 1], state.hWalls, state.vWalls);
+        if (dist < shortestDist) {
+          shortestDist = dist;
+          bestMove = { r, c };
+        }
+      }
+
+      if (bestMove) {
+        executeMove(bestMove.r, bestMove.c, true);
+      }
+    };
+
+    const timer = setTimeout(thinkAndPlay, botLevel === 1 ? 500 : 800);
+    return () => clearTimeout(timer);
+
+  }, [isBotMode, botLevel, state.turn, state.winner, state.hWalls, state.vWalls, state.p1, state.p2, executeMove, handleWallClick]);
+
+
   const isP1Turn = state.turn === "p1";
   const CELL = 46; 
   const GAP = 8; 
@@ -488,7 +684,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
 
   return (
     <div className="flex w-full absolute inset-0">
-      
+  
       {/* --- COLUMN 1: CENTER BOARD AREA --- */}
       <main className="flex-1 flex flex-col items-center justify-center p-2 relative overflow-y-auto min-w-0">
         
