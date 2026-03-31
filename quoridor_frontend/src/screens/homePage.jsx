@@ -72,7 +72,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Side Card: Bot Training */}
+          {/* Side Card: Bot Training
           <div className="col-span-1 bg-[#1a140f] border border-[#3d2b1f] rounded-3xl p-6 flex flex-col shadow-xl hover:border-[#a08b74] transition-colors">
             <div className="bg-[#2a2118] w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 border border-[#3d2b1f]">🤖</div>
             <h3 className="text-xl font-bold mb-2 text-white">Bot Training</h3>
@@ -80,7 +80,25 @@ export default function HomePage() {
             <Link to="/board?mode=bot" className="w-full bg-[#2a2118] hover:bg-[#3d2b1f] border border-[#3d2b1f] text-center py-3 rounded-xl font-bold text-white transition-colors">
               Challenge Bot
             </Link>
+          </div> */}
+          
+          {/* Side Card: Bot Training */}
+          <div className="col-span-1 bg-[#1a140f] border border-[#3d2b1f] rounded-3xl p-6 flex flex-col shadow-xl hover:border-[#a08b74] transition-colors">
+            <div className="bg-[#2a2118] w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 border border-[#3d2b1f]">🤖</div>
+            <h3 className="text-xl font-bold mb-2 text-white">Bot Training</h3>
+            <p className="text-[#a08b74] text-sm mb-4 flex-1">Practice your pathfinding against our AI.</p>
+            
+            {/* The New Difficulty Buttons */}
+            <div className="flex gap-2 mt-auto">
+              <Link to="/board?mode=bot&level=1" className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] border border-[#3d2b1f] text-center py-3 rounded-xl font-bold text-[#a08b74] transition-colors text-sm">
+                Lvl 1: Runner
+              </Link>
+              <Link to="/board?mode=bot&level=2" className="flex-1 bg-[#d4700a] hover:bg-[#f08a1c] border border-[#8a4600] text-center py-3 rounded-xl font-bold text-white transition-colors shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none text-sm">
+                Lvl 2: Blocker
+              </Link>
+            </div>
           </div>
+          
         </div>
 
         {/* BOTTOM ROW: Secondary Modes & Community (Changed to grid-cols-3) */}
