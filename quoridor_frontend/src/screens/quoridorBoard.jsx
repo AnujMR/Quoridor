@@ -479,7 +479,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
 
   return (
     <div className="flex w-full absolute inset-0">
-      
+  
       {/* --- COLUMN 1: CENTER BOARD AREA --- */}
       <main className="flex-1 flex flex-col items-center justify-center p-2 relative overflow-y-auto min-w-0">
         
