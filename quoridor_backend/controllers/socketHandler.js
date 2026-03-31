@@ -113,6 +113,15 @@ module.exports = (io) => {
             waitingQueue = waitingQueue.filter(s => s.id !== socket.id);
         });
 
+        // --- CHAT LOGIC ---
+        socket.on('chat_message', (data) => {
+            const { roomId, message } = data;
+
+            // Broadcast the message to the other player in the room
+            // Using socket.to(roomId) ensures the sender doesn't receive their own message back
+            socket.to(roomId).emit('sync_chat', message);
+        });
+
         // --- 1. JOIN GAME ---
         socket.on('join_game', ({ roomId, uid, game_type, created_at }) => {
             socket.join(roomId);
