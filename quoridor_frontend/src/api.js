@@ -37,3 +37,4 @@ export const getFriendsList = (userId) => axios.get(`${BASE_URL}/friends/${userI
 export const getPendingRequests = (userId) => axios.get(`${BASE_URL}/friends/${userId}/pending`);
 
 export const getGameHistory = (userId) => axios.get(`${BASE_URL}/games/history/${userId}`);
+export const getSentRequests = (userId) => axios.get(`${BASE_URL}/friends/${userId}/sent`);

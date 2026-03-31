@@ -1,20 +1,23 @@
 // src/screens/ProfilePage.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { 
   getFriendsList, 
-  getPendingRequests, 
+  getPendingRequests,
+  getSentRequests, // 👈 Imported the new API call
   sendFriendRequest, 
   acceptFriendRequest, 
   rejectFriendRequest, 
   removeFriend,
   searchUsersByName, // Import the new search function
-  getGameHistory
+  getGameHistory,
+  getUserById
 } from '../api';
 
 export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState('Overview');
+  const { userId } = useParams(); // Get ID from URL
+  const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.user);
 
   // NEW: Game History States
@@ -24,26 +27,31 @@ export default function ProfilePage() {
   const ITEMS_PER_PAGE = 10;
 
   // --- NEW STATE FOR FRIENDS SYSTEM ---
+  // --- DYNAMIC PROFILE STATE ---
+  const [profileUser, setProfileUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Is this the logged-in user's profile, or a friend's?
+  const isOwnProfile = !userId || String(userId) === String(currentUser?.id);
+
+  const [activeTab, setActiveTab] = useState('Overview');
   const [friends, setFriends] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]); // 👈 State for sent requests
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // --- INITIAL DATA FETCH ---
-  const fetchFriendsData = async () => {
-    if (!currentUser?.id) return;
-    try {
-      const friendsRes = await getFriendsList(currentUser.id);
-      setFriends(friendsRes.data);
+  // --- NEW: UI/UX STATES ---
+  const [toast, setToast] = useState(null); 
+  const [friendToRemove, setFriendToRemove] = useState(null); 
 
-      const requestsRes = await getPendingRequests(currentUser.id);
-      setPendingRequests(requestsRes.data);
-    } catch (error) {
-      console.error("Error fetching friends data:", error);
-    }
+  // Helper function to show beautiful toast popups
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000); // Auto-hide after 3s
   };
 
   // NEW: Fetch Game History Function
@@ -64,91 +72,162 @@ export default function ProfilePage() {
     }
   };
 
+  // --- INITIAL DATA FETCH ---
+  const fetchFriendsData = async () => {
+    if (!currentUser?.id) return;
+    try {
+      const friendsRes = await getFriendsList(currentUser.id);
+      setFriends(friendsRes.data);
+
+      const requestsRes = await getPendingRequests(currentUser.id);
+      setPendingRequests(requestsRes.data);
+    } catch (error) {
+      console.error("Error fetching friends data:", error);
+    }
+  };
+
   // Run once when component mounts or currentUser changes
   useEffect(() => {
     fetchFriendsData();
     fetchHistoryData();
   }, [currentUser?.id]);
+  useEffect(() => {
+    setActiveTab('Overview');
+  }, [userId]);
+
+  // --- FETCH PROFILE DATA ---
+  useEffect(() => {
+    const loadProfile = async () => {
+      setIsLoading(true);
+      try {
+        let targetUserId;
+        
+        if (isOwnProfile) {
+          setProfileUser(currentUser);
+          targetUserId = currentUser?.id;
+        } else {
+          const res = await getUserById(userId);
+          setProfileUser(res.data);
+          targetUserId = userId;
+        }
+
+        if (targetUserId) {
+          const friendsRes = await getFriendsList(targetUserId);
+          setFriends(friendsRes.data);
+
+          // ONLY fetch pending and sent requests if we are looking at our own profile
+          if (isOwnProfile) {
+            const requestsRes = await getPendingRequests(targetUserId);
+            setPendingRequests(requestsRes.data);
+            
+            const sentRes = await getSentRequests(targetUserId);
+            setSentRequests(sentRes.data);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (currentUser?.id) {
+      loadProfile();
+    }
+  }, [userId, currentUser, isOwnProfile]);
 
   // --- DEBOUNCED SEARCH EFFECT ---
   useEffect(() => {
-    // If input is empty, clear results and stop
     if (!searchQuery.trim()) {
       setSearchResults([]);
       setIsSearching(false);
       return;
     }
-
     setIsSearching(true);
-
-    // Set up the delay (debounce)
     const delayDebounceFn = setTimeout(async () => {
       try {
         const res = await searchUsersByName(searchQuery);
-        // Filter out the current user from the search results
-        const filteredResults = res.data.filter(u => u.id !== currentUser.id);
+        // Filter out ourselves AND people we already sent a request to
+        const sentIds = sentRequests.map(req => req.receiver_id);
+        const filteredResults = res.data.filter(u => u.id !== currentUser.id && !sentIds.includes(u.id));
+        
         setSearchResults(filteredResults);
       } catch (error) {
         console.error("Search failed:", error);
       } finally {
         setIsSearching(false);
       }
-    }, 1000); // 1000ms = 1 second delay
-
-    // Cleanup function: If the user types again before 1s, cancel the previous timeout
+    }, 1000);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, currentUser?.id]);
+  }, [searchQuery, currentUser?.id, sentRequests]);
 
 
-  // --- ACTION HANDLERS ---
+  // --- ACTION HANDLERS (Replaced alerts with Toasts) ---
   const handleSendRequest = async (receiverId) => {
     try {
       await sendFriendRequest({ senderId: currentUser.id, receiverId });
-      alert("Friend request sent!");
-      setSearchQuery(''); // Clear search after sending
+      showToast("Friend request sent!");
+      setSearchQuery(''); 
+      // Refresh sent requests
+      const sentRes = await getSentRequests(currentUser.id);
+      setSentRequests(sentRes.data);
     } catch (error) {
-      alert(error.response?.data?.error || "Failed to send request");
+      showToast(error.response?.data?.error || "Failed to send request", "error");
     }
   };
 
   const handleAccept = async (senderId) => {
     try {
       await acceptFriendRequest({ senderId, receiverId: currentUser.id });
-      fetchFriendsData(); // Refresh the lists
+      showToast("Friend request accepted!");
+      const friendsRes = await getFriendsList(currentUser.id);
+      setFriends(friendsRes.data);
+      const requestsRes = await getPendingRequests(currentUser.id);
+      setPendingRequests(requestsRes.data);
     } catch (error) {
-      alert("Failed to accept request");
-      console.error(error);
+      showToast("Failed to accept request", "error");
     }
   };
 
   const handleReject = async (senderId) => {
     try {
       await rejectFriendRequest({ senderId, receiverId: currentUser.id });
-      fetchFriendsData(); // Refresh the lists
+      showToast("Friend request rejected.", "error");
+      const requestsRes = await getPendingRequests(currentUser.id);
+      setPendingRequests(requestsRes.data);
     } catch (error) {
-      alert("Failed to reject request");
-      console.error(error);
+      showToast("Failed to reject request", "error");
     }
   };
 
-  const handleRemove = async (friendId) => {
-    if (window.confirm("Are you sure you want to remove this friend?")) {
-      try {
-        await removeFriend({ user1: currentUser.id, user2: friendId });
-        fetchFriendsData(); // Refresh the list
-      } catch (error) {
-        alert("Failed to remove friend");
-        console.error(error);
-      }
+  // 👈 New Custom Remove Flow (Replaces window.confirm)
+  const confirmAndRemoveFriend = async () => {
+    if (!friendToRemove) return;
+    try {
+      await removeFriend({ user1: currentUser.id, user2: friendToRemove.id });
+      showToast(`Removed ${friendToRemove.name} from friends.`, "error");
+      const friendsRes = await getFriendsList(currentUser.id);
+      setFriends(friendsRes.data);
+    } catch (error) {
+      showToast("Failed to remove friend", "error");
+    } finally {
+      setFriendToRemove(null); // Close modal
     }
   };
 
-  // Firebase Fallbacks
-  const displayName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Challenger';
-  const photoURL = currentUser?.profile || '/default-avatar.png';
-  const joinDate = currentUser?.created_at 
-    ? new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
-    : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center text-[#a08b74]">Loading Profile...</div>;
+  }
+
+  if (!profileUser) {
+    return <div className="flex h-screen items-center justify-center text-[#a08b74]">User not found.</div>;
+  }
+
+  const displayName = profileUser?.name || profileUser?.email?.split('@')[0] || 'Challenger';
+  const photoURL = profileUser?.profile || '/default-avatar.png';
+  const joinDate = profileUser?.created_at 
+    ? new Date(profileUser.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
+    : 'Unknown Date';
 
   // 👉 NEW: Pagination calculations
   const totalHistoryPages = Math.max(1, Math.ceil(gameHistory.length / ITEMS_PER_PAGE));
@@ -159,6 +238,43 @@ export default function ProfilePage() {
 
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+      
+      {/* 👈 CUSTOM TOAST NOTIFICATION */}
+      {toast && (
+        <div className={`fixed bottom-8 right-8 px-6 py-4 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border z-50 animate-bounce transition-all ${
+          toast.type === 'error' ? 'bg-red-900/90 border-red-500 text-red-100' : 'bg-green-900/90 border-green-500 text-green-100'
+        }`}>
+          <p className="font-bold flex items-center gap-2">
+            {toast.type === 'error' ? '⚠️' : '✅'} {toast.message}
+          </p>
+        </div>
+      )}
+
+      {/* 👈 CUSTOM REMOVE CONFIRMATION MODAL */}
+      {friendToRemove && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#1a140f] p-8 rounded-2xl border border-[#3d2b1f] max-w-sm w-full text-center shadow-2xl">
+            <div className="text-4xl mb-4">💔</div>
+            <h2 className="text-2xl font-extrabold text-white mb-2">Remove Friend?</h2>
+            <p className="text-[#a08b74] mb-8">Are you sure you want to remove <strong className="text-white">{friendToRemove.name}</strong> from your friends list?</p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setFriendToRemove(null)}
+                className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-white py-3 rounded-xl font-bold transition-colors border border-[#3d2b1f]"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmAndRemoveFriend}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold shadow-[0_4px_0_#7f1d1d] active:translate-y-1 active:shadow-none transition-all"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="absolute inset-0 opacity-5 pointer-events-none" 
            style={{ backgroundImage: 'linear-gradient(#f0d9b5 1px, transparent 1px), linear-gradient(90deg, #f0d9b5 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
       </div>
@@ -170,18 +286,24 @@ export default function ProfilePage() {
           <div className="w-24 h-24 md:w-32 md:h-32 bg-[#2a2118] rounded-2xl overflow-hidden flex-shrink-0 border-2 border-[#d4700a] shadow-[0_0_15px_rgba(212,112,10,0.2)]">
             <img src={photoURL} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none' }} />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1">
             <h1 className="text-3xl font-extrabold mb-2 text-white">{displayName}</h1>
             <div className="text-sm text-[#a08b74] flex flex-wrap items-center gap-x-4 gap-y-2">
               <span><strong className="text-[#f0d9b5]">{joinDate}</strong> Joined</span>
               <span><strong className="text-[#f0d9b5]">{friends.length}</strong> Friends</span>
-              <span><strong className="text-[#f0d9b5]">1</strong> View</span>
-              <span className="flex items-center gap-2 text-[#d4700a] font-bold">
-                <span className="w-2 h-2 rounded-full bg-[#d4700a] animate-pulse"></span>
-                In the Maze
-              </span>
+              <span><strong className="text-[#f0d9b5]">{profileUser.rating || 1200}</strong> Elo</span>
             </div>
           </div>
+          
+          {/* Add Friend Button in Header (Only if it's not our own profile) */}
+          {!isOwnProfile && (
+            <button 
+              onClick={() => handleSendRequest(profileUser.id)}
+              className="bg-[#d4700a] hover:bg-[#f08a1c] text-white px-6 py-3 rounded-xl font-bold shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all whitespace-nowrap"
+            >
+              Add Friend
+            </button>
+          )}
         </div>
 
         {/* --- 2. TABS NAVIGATION --- */}
@@ -205,17 +327,14 @@ export default function ProfilePage() {
           {/* ===================== OVERVIEW TAB ===================== */}
           {activeTab === 'Overview' && (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              {/* LEFT COLUMN */}
               <div className="xl:col-span-2 flex flex-col gap-6">
-                {/* Stat Cards Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Ranked Card */}
                   <div className="bg-[#1a140f] p-5 rounded-2xl border border-[#3d2b1f] hover:border-[#a08b74] cursor-pointer transition-colors group">
                     <div className="flex items-center gap-4 mb-4">
                       <div className="bg-[#2a2118] p-3 rounded-xl border border-[#3d2b1f] group-hover:bg-[#3d2b1f] transition-colors text-xl">🏆</div>
                       <div>
                         <h3 className="text-[#a08b74] text-sm font-bold uppercase tracking-wider">Ranked Elo</h3>
-                        <p className="text-3xl font-extrabold text-white">1200</p>
+                        <p className="text-3xl font-extrabold text-white">{profileUser.rating || 1200}</p>
                       </div>
                     </div>
                     <div className="w-full h-1.5 bg-[#3d2b1f] mt-2 relative rounded-full overflow-hidden">
@@ -223,7 +342,6 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  {/* Puzzles Card */}
                   <div className="bg-[#1a140f] p-5 rounded-2xl border border-[#3d2b1f] hover:border-[#a08b74] cursor-pointer transition-colors group">
                     <div className="flex items-center gap-4 mb-4">
                       <div className="bg-[#2a2118] p-3 rounded-xl border border-[#3d2b1f] group-hover:bg-[#3d2b1f] transition-colors text-xl">🧩</div>
@@ -241,16 +359,17 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Active Match Prompt */}
-                <div className="bg-[#1a140f] p-6 rounded-2xl border border-[#3d2b1f] flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-extrabold mb-1 text-white">Active Matches <span className="text-[#a08b74] font-normal">(0)</span></h2>
-                    <p className="text-[#a08b74] text-sm">You have no ongoing asynchronous games.</p>
+                {isOwnProfile && (
+                  <div className="bg-[#1a140f] p-6 rounded-2xl border border-[#3d2b1f] flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-extrabold mb-1 text-white">Active Matches <span className="text-[#a08b74] font-normal">(0)</span></h2>
+                      <p className="text-[#a08b74] text-sm">You have no ongoing asynchronous games.</p>
+                    </div>
+                    <Link to="/board" className="bg-[#d4700a] hover:bg-[#f08a1c] text-white px-8 py-3 rounded-xl font-bold shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all whitespace-nowrap">
+                      Find Match
+                    </Link>
                   </div>
-                  <Link to="/board" className="bg-[#d4700a] hover:bg-[#f08a1c] text-white px-8 py-3 rounded-xl font-bold shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all whitespace-nowrap">
-                    Find Match
-                  </Link>
-                </div>
+                )}
 
                 {/* Game History Table */}
                 {/* --- GAME HISTORY TABLE --- */}
@@ -352,7 +471,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* RIGHT COLUMN (Widgets) */}
               <div className="flex flex-col gap-6">
                 <div className="bg-[#1a140f] p-5 rounded-2xl border border-[#3d2b1f] hover:border-[#a08b74] transition-colors flex items-center gap-4 cursor-pointer">
                   <div className="w-14 h-14 bg-gradient-to-br from-gray-300 to-gray-500 rounded-full border-4 border-[#2a2118] shadow-inner flex items-center justify-center text-2xl">🏆</div>
@@ -362,19 +480,22 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Dynamic Quick Friends Widget */}
                 <div className="bg-[#1a140f] rounded-2xl border border-[#3d2b1f] overflow-hidden">
                   <div className="p-5 border-b border-[#3d2b1f] flex justify-between items-center">
                     <h3 className="font-bold text-lg text-white">Friends</h3>
                     <span className="bg-[#2a2118] px-2 py-0.5 rounded text-sm text-[#a08b74] font-bold">{friends.length}</span>
                   </div>
                   {friends.slice(0, 3).map(friend => (
-                    <div key={friend.id} className="p-4 flex items-center gap-4 hover:bg-[#2a2118] cursor-pointer transition-colors border-b border-[#3d2b1f] last:border-0">
+                    <div 
+                      key={friend.id} 
+                      onClick={() => navigate(`/profile/${friend.id}`)}
+                      className="p-4 flex items-center gap-4 hover:bg-[#2a2118] cursor-pointer transition-colors border-b border-[#3d2b1f] last:border-0"
+                    >
                       <div className="w-12 h-12 bg-[#2a2118] rounded-xl border border-[#3d2b1f] overflow-hidden flex items-center justify-center text-xl">
                         {friend.profile ? <img src={friend.profile} alt="friend" className="w-full h-full object-cover"/> : '👤'}
                       </div>
                       <div>
-                        <p className="font-bold text-white">{friend.name}</p>
+                        <p className="font-bold text-white hover:text-[#d4700a] transition-colors">{friend.name}</p>
                         <p className="text-xs text-[#a08b74] font-semibold mt-0.5 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Online
                         </p>
@@ -382,7 +503,7 @@ export default function ProfilePage() {
                     </div>
                   ))}
                   {friends.length === 0 && (
-                    <p className="p-4 text-center text-[#a08b74] text-sm">No friends yet. Add some!</p>
+                    <p className="p-4 text-center text-[#a08b74] text-sm">No friends yet.</p>
                   )}
                 </div>
               </div>
@@ -393,127 +514,171 @@ export default function ProfilePage() {
           {activeTab === 'Friends' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
-              {/* Left Column: My Friends & Add Friend */}
               <div className="flex flex-col gap-6">
                 
-                {/* Search / Add Friend Box */}
-                <div className="bg-[#1a140f] p-6 rounded-2xl border border-[#3d2b1f]">
-                  <h2 className="text-xl font-extrabold mb-4 text-white">Add a Friend</h2>
-                  <div className="flex flex-col gap-3 relative">
-                    <input 
-                      type="text" 
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search users by name..." 
-                      className="w-full bg-[#2a2118] border border-[#3d2b1f] text-white px-4 py-3 rounded-xl focus:outline-none focus:border-[#d4700a] transition-colors placeholder-[#a08b74]"
-                    />
-                    
-                    {/* Search Results Dropdown */}
-                    {searchQuery.trim() !== '' && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-[#2a2118] border border-[#3d2b1f] rounded-xl shadow-xl overflow-hidden z-20 max-h-60 overflow-y-auto">
-                        {isSearching ? (
-                          <div className="p-4 text-center text-[#a08b74] text-sm">Searching...</div>
-                        ) : searchResults.length > 0 ? (
-                          searchResults.map(user => (
-                            <div key={user.id} className="flex items-center justify-between p-3 hover:bg-[#3d2b1f] transition-colors border-b border-[#3d2b1f] last:border-0">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-[#1a140f] rounded-full flex items-center justify-center text-xs">👤</div>
-                                <span className="font-bold text-white text-sm">{user.name}</span>
+                {/* ONLY SHOW ADD FRIEND BOX ON OWN PROFILE */}
+                {isOwnProfile && (
+                  <div className="bg-[#1a140f] p-6 rounded-2xl border border-[#3d2b1f]">
+                    <h2 className="text-xl font-extrabold mb-4 text-white">Add a Friend</h2>
+                    <div className="flex flex-col gap-3 relative">
+                      <input 
+                        type="text" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search users by name..." 
+                        className="w-full bg-[#2a2118] border border-[#3d2b1f] text-white px-4 py-3 rounded-xl focus:outline-none focus:border-[#d4700a] transition-colors placeholder-[#a08b74]"
+                      />
+                      
+                      {searchQuery.trim() !== '' && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-[#2a2118] border border-[#3d2b1f] rounded-xl shadow-xl overflow-hidden z-20 max-h-60 overflow-y-auto">
+                          {isSearching ? (
+                            <div className="p-4 text-center text-[#a08b74] text-sm">Searching...</div>
+                          ) : searchResults.length > 0 ? (
+                            searchResults.map(user => (
+                              <div key={user.id} className="flex items-center justify-between p-3 hover:bg-[#3d2b1f] transition-colors border-b border-[#3d2b1f] last:border-0">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-[#1a140f] rounded-full flex items-center justify-center text-xs">👤</div>
+                                  <span className="font-bold text-white text-sm">{user.name}</span>
+                                </div>
+                                <button 
+                                  onClick={() => handleSendRequest(user.id)}
+                                  className="bg-[#d4700a] hover:bg-[#f08a1c] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                                >
+                                  Add
+                                </button>
                               </div>
-                              <button 
-                                onClick={() => handleSendRequest(user.id)}
-                                className="bg-[#d4700a] hover:bg-[#f08a1c] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                              >
-                                Add
-                              </button>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="p-4 text-center text-[#a08b74] text-sm">No users found.</div>
-                        )}
-                      </div>
-                    )}
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-[#a08b74] text-sm">No users found.</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Dynamic Current Friends List */}
+                {/* CURRENT FRIENDS LIST */}
                 <div className="bg-[#1a140f] rounded-2xl border border-[#3d2b1f] overflow-hidden">
                   <div className="p-5 border-b border-[#3d2b1f]">
-                    <h2 className="text-xl font-extrabold text-white">My Friends <span className="text-[#a08b74] font-normal text-lg">({friends.length})</span></h2>
+                    <h2 className="text-xl font-extrabold text-white">
+                      {isOwnProfile ? "My Friends" : `${displayName}'s Friends`} <span className="text-[#a08b74] font-normal text-lg">({friends.length})</span>
+                    </h2>
                   </div>
                   <div className="p-2 flex flex-col gap-1">
                     {friends.map((friend) => (
-                      <div key={friend.id} className="flex items-center justify-between p-4 hover:bg-[#2a2118] rounded-xl cursor-pointer transition-colors group">
+                      <div 
+                        key={friend.id} 
+                        onClick={() => navigate(`/profile/${friend.id}`)} 
+                        className="flex items-center justify-between p-4 hover:bg-[#2a2118] rounded-xl cursor-pointer transition-colors group"
+                      >
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-[#2a2118] rounded-xl border border-[#3d2b1f] flex items-center justify-center text-xl overflow-hidden">
                             {friend.profile ? <img src={friend.profile} alt="friend" className="w-full h-full object-cover"/> : '👤'}
                           </div>
                           <div>
-                            <p className="font-bold text-white">{friend.name}</p>
+                            <p className="font-bold text-white group-hover:text-[#d4700a] transition-colors">{friend.name}</p>
                             <p className="text-xs text-[#a08b74] font-semibold mt-0.5">Rating: {friend.rating}</p>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => handleRemove(friend.id)}
-                          className="text-[#a08b74] hover:text-red-500 font-bold px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                          Remove
-                        </button>
+                        
+                        {/* 👈 Replaced direct remove with Modal trigger */}
+                        {isOwnProfile && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setFriendToRemove(friend); }}
+                            className="text-[#a08b74] hover:text-red-500 font-bold px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
                     ))}
                     {friends.length === 0 && (
-                      <p className="p-6 text-center text-[#a08b74]">You have no friends yet.</p>
+                      <p className="p-6 text-center text-[#a08b74]">
+                        {isOwnProfile ? "You have no friends yet." : `${displayName} has no friends yet.`}
+                      </p>
                     )}
                   </div>
                 </div>
 
               </div>
 
-              {/* Right Column: Dynamic Pending Requests */}
+              {/* RIGHT COLUMN */}
               <div className="flex flex-col gap-6">
-                <div className="bg-[#1a140f] rounded-2xl border border-[#3d2b1f] overflow-hidden">
-                  <div className="p-5 border-b border-[#3d2b1f]">
-                    <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
-                      Pending Requests 
-                      {pendingRequests.length > 0 && (
-                        <span className="bg-[#d4700a] text-white text-xs px-2 py-0.5 rounded-full">{pendingRequests.length}</span>
+                
+                {/* RECEIVED REQUESTS */}
+                {isOwnProfile && (
+                  <div className="bg-[#1a140f] rounded-2xl border border-[#3d2b1f] overflow-hidden">
+                    <div className="p-5 border-b border-[#3d2b1f]">
+                      <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                        Received Requests 
+                        {pendingRequests.length > 0 && (
+                          <span className="bg-[#d4700a] text-white text-xs px-2 py-0.5 rounded-full">{pendingRequests.length}</span>
+                        )}
+                      </h2>
+                    </div>
+                    
+                    <div className="p-2 flex flex-col gap-2">
+                      {pendingRequests.map((request) => (
+                        <div key={request.request_id} className="flex items-center justify-between p-4 bg-[#201812] rounded-xl border border-[#3d2b1f]">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#2a2118] rounded-full flex items-center justify-center text-xl overflow-hidden">
+                              {request.profile ? <img src={request.profile} alt="sender" className="w-full h-full object-cover"/> : '👤'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-white text-sm">{request.name}</p>
+                              <p className="text-xs text-[#a08b74] font-semibold">Rating: {request.rating}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleAccept(request.sender_id)} className="bg-green-600/20 text-green-500 hover:bg-green-600 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
+                              Accept
+                            </button>
+                            <button onClick={() => handleReject(request.sender_id)} className="bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {pendingRequests.length === 0 && (
+                        <p className="p-6 text-center text-[#a08b74]">No pending requests.</p>
                       )}
-                    </h2>
+                    </div>
                   </div>
-                  
-                  <div className="p-2 flex flex-col gap-2">
-                    {pendingRequests.map((request) => (
-                      <div key={request.request_id} className="flex items-center justify-between p-4 bg-[#201812] rounded-xl border border-[#3d2b1f]">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-[#2a2118] rounded-full flex items-center justify-center text-xl overflow-hidden">
-                            {request.profile ? <img src={request.profile} alt="sender" className="w-full h-full object-cover"/> : '👤'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-white text-sm">{request.name}</p>
-                            <p className="text-xs text-[#a08b74] font-semibold">Rating: {request.rating}</p>
+                )}
+
+                {/* 👈 NEW: SENT REQUESTS */}
+                {isOwnProfile && (
+                  <div className="bg-[#1a140f] rounded-2xl border border-[#3d2b1f] overflow-hidden">
+                    <div className="p-5 border-b border-[#3d2b1f]">
+                      <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                        Sent Requests 
+                        {sentRequests.length > 0 && (
+                          <span className="bg-[#a08b74] text-[#1a140f] text-xs px-2 py-0.5 rounded-full">{sentRequests.length}</span>
+                        )}
+                      </h2>
+                    </div>
+                    
+                    <div className="p-2 flex flex-col gap-2">
+                      {sentRequests.map((request) => (
+                        <div key={request.request_id} className="flex items-center justify-between p-4 bg-[#201812] rounded-xl border border-[#3d2b1f] opacity-75">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#2a2118] rounded-full flex items-center justify-center text-xl overflow-hidden">
+                              {request.profile ? <img src={request.profile} alt="receiver" className="w-full h-full object-cover"/> : '👤'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-white text-sm">{request.name}</p>
+                              <p className="text-xs text-[#a08b74] font-semibold">Waiting for response...</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => handleAccept(request.sender_id)}
-                            className="bg-green-600/20 text-green-500 hover:bg-green-600 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                          >
-                            Accept
-                          </button>
-                          <button 
-                            onClick={() => handleReject(request.sender_id)}
-                            className="bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {pendingRequests.length === 0 && (
-                      <p className="p-6 text-center text-[#a08b74]">No pending requests.</p>
-                    )}
+                      ))}
+                      {sentRequests.length === 0 && (
+                        <p className="p-6 text-center text-[#a08b74]">You haven't sent any requests.</p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
+
               </div>
             </div>
           )}

@@ -30,15 +30,36 @@ async function getAllUsers() {
   return result.rows;
 }
 
+/*
+// /**
+//  * Get user by ID
+//  */
+// async function getUserById(id) {
+//   const result = await pool.query(
+//     "SELECT * FROM users WHERE firebase_uid = $1;",
+//     [id]
+//   );
+//   return result.rows[0]; // undefined if not found
+// }
+// */
+
+
 /**
- * Get user by ID
+ * Get user by ID (Smart Version: Handles both Numeric DB ID and Firebase UID)
  */
 async function getUserById(id) {
-  const result = await pool.query(
-    "SELECT * FROM users WHERE firebase_uid = $1;",
-    [id]
-  );
-  return result.rows[0]; // undefined if not found
+  let query = "";
+  
+  // Regex to check if the ID is strictly numbers (e.g., "12")
+  if (/^\d+$/.test(id)) {
+    query = "SELECT * FROM users WHERE id = $1;";
+  } else {
+    // If it contains letters (like a Firebase UID), search the firebase_uid column
+    query = "SELECT * FROM users WHERE firebase_uid = $1;";
+  }
+
+  const result = await pool.query(query, [id]);
+  return result.rows[0]; // Returns undefined if not found
 }
 
 /**
@@ -69,7 +90,7 @@ async function deleteUser(id) {
 }
 
 async function updateElo(p1Uid, p2Uid, winnerUid) {
-  // console.log(`Updating Elo: p1Uid=${p1Uid}, p2Uid=${p2Uid}, winnerUid=${winnerUid}`);
+  console.log(`Updating Elo: p1Uid=${p1Uid}, p2Uid=${p2Uid}, winnerUid=${winnerUid}`);
 
   const p1 = await getUserById(p1Uid);
   const p2 = await getUserById(p2Uid);
