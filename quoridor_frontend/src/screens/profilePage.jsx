@@ -191,6 +191,9 @@ export default function ProfilePage() {
   const joinDate = profileUser?.created_at 
     ? new Date(profileUser.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
     : 'Unknown Date';
+  
+  //fixing add friend button
+  const isAlreadyFriend = friends.some(friend => String(friend.id) === String(currentUser?.id));
 
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
@@ -252,13 +255,33 @@ export default function ProfilePage() {
           </div>
           
           {/* Add Friend Button in Header (Only if it's not our own profile) */}
-          {!isOwnProfile && (
+          {/* {!isOwnProfile && (
             <button 
               onClick={() => handleSendRequest(profileUser.id)}
               className="bg-[#d4700a] hover:bg-[#f08a1c] text-white px-6 py-3 rounded-xl font-bold shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all whitespace-nowrap"
             >
               Add Friend
             </button>
+          )} */}
+          {/* Add Friend Button in Header (Only if it's not our own profile) */}
+          {!isOwnProfile && (
+            isAlreadyFriend ? (
+              <button 
+                onClick={() => setFriendToRemove(profileUser)}
+                className="bg-[#2a2118] hover:bg-[#3d2b1f] hover:text-red-500 text-[#a08b74] px-6 py-3 rounded-xl font-bold border border-[#3d2b1f] transition-all whitespace-nowrap group"
+                title="Click to remove friend"
+              >
+                <span className="group-hover:hidden">✓ Friends</span>
+                <span className="hidden group-hover:inline">Remove Friend</span>
+              </button>
+            ) : (
+              <button 
+                onClick={() => handleSendRequest(profileUser.id)}
+                className="bg-[#d4700a] hover:bg-[#f08a1c] text-white px-6 py-3 rounded-xl font-bold shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all whitespace-nowrap"
+              >
+                Add Friend
+              </button>
+            )
           )}
         </div>
 
