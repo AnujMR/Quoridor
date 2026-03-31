@@ -162,6 +162,11 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     { sender: "System", text: "Match started. Good luck!" }
   ]);
 
+  // --- AUTO-SCROLL EFFECT ---
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMsgs]);
+
   const [winReason, setWinReason] = useState(null); // 'normal' | 'forfeit' | 'timeout'
   const [ratingUpdates, setRatingUpdates] = useState(null);
 
@@ -410,7 +415,7 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
 
     setChatMsgs(prev => [...prev, { sender: "You", text: chatInput }]);
     if (socket) {
-      socket.emit("chat_message", { roomId, text: chatInput });
+      socket.emit("chat_message", { roomId, message: chatInput });
     }
     setChatInput("");
   };
@@ -800,9 +805,9 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
           <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
             🏳️ Resign
           </button>
-          <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
+          {/* <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
             🤝 Draw
-          </button>
+          </button> */}
         </div>
 
       </aside>

@@ -63,7 +63,7 @@ module.exports = (io) => {
 
                 if (activePlayerTime - timeSpent <= 0) {
                     const winnerUid = game.currentTurn === 'p1' ? game.p2.uid : game.p1.uid;
-                    console.log(`Timeout in room ${roomId}. Winner: ${winnerUid}`);
+                    // console.log(`Timeout in room ${roomId}. Winner: ${winnerUid}`);
                     endGameHelper(io, roomId, game, winnerUid, 'timeout');
                 }
             }
@@ -71,7 +71,7 @@ module.exports = (io) => {
     }, 1000);
 
     io.on('connection', (socket) => {
-        console.log(`New connection: ${socket.id}`);
+        // console.log(`New connection: ${socket.id}`);
 
         // --- MATCHMAKING ---
         socket.on('start_search', async ({ userId }) => {
@@ -197,7 +197,7 @@ module.exports = (io) => {
 
             // Check Win Condition
             if (action.isWin) {
-                console.log(`Winning move detected in room ${roomId} by socket ${socket.id}`);
+                // console.log(`Winning move detected in room ${roomId} by socket ${socket.id}`);
                 // Use the helper to process Elo, emit game_over, and save to DB
                 endGameHelper(io, roomId, game, socket.uid, 'normal');
             }

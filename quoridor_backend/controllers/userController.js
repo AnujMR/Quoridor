@@ -16,9 +16,12 @@ async function createUser(data) {
     RETURNING *;
   `;
   const values = [firebase_uid, name, email, 1400, created_at]; // Default rating of 1400
-
-  const result = await pool.query(query, values);
+  let client;
+  client = await pool.connect();
+  const result = await client.query(query, values);
+  // const result = await pool.query(query, values);
   // console.log("User created with ID:", result.rows[0].id);
+  client?.release();
   return result.rows[0];
 }
 
@@ -26,7 +29,12 @@ async function createUser(data) {
  * Get all users
  */
 async function getAllUsers() {
-  const result = await pool.query("SELECT * FROM public.users ORDER BY id;");
+  // const result = await pool.query("SELECT * FROM public.users ORDER BY id;");
+
+  let client;
+  client = await pool.connect();
+  const result = await client.query("SELECT * FROM public.users ORDER BY id;");
+  client?.release();
   return result.rows;
 }
 
@@ -58,7 +66,12 @@ async function getUserById(id) {
     query = "SELECT * FROM users WHERE firebase_uid = $1;";
   }
 
-  const result = await pool.query(query, [id]);
+  // const result = await pool.query(query, [id]);
+
+  let client;
+  client = await pool.connect();
+  const result = await client.query(query, [id]);
+  client?.release();
   return result.rows[0]; // Returns undefined if not found
 }
 
@@ -74,7 +87,11 @@ async function updateUser(id, name, email) {
   `;
   const values = [name, email, id];
 
-  const result = await pool.query(query, values);
+  // const result = await pool.query(query, values);
+  let client;
+  client = await pool.connect();
+  const result = await client.query(query, values);
+  client?.release();
   return result.rows[0];
 }
 
@@ -82,15 +99,20 @@ async function updateUser(id, name, email) {
  * Delete user
  */
 async function deleteUser(id) {
-  const result = await pool.query(
-    "DELETE FROM users WHERE id = $1 RETURNING *;",
-    [id]
-  );
+  // const result = await pool.query(
+  //   "DELETE FROM users WHERE id = $1 RETURNING *;",
+  //   [id]
+  // );
+
+  let client;
+  client = await pool.connect();
+  const result = await client.query("DELETE FROM users WHERE id = $1 RETURNING *;", [id]);
+  client?.release();
   return result.rows[0];
 }
 
 async function updateElo(p1Uid, p2Uid, winnerUid) {
-  console.log(`Updating Elo: p1Uid=${p1Uid}, p2Uid=${p2Uid}, winnerUid=${winnerUid}`);
+  // console.log(`Updating Elo: p1Uid=${p1Uid}, p2Uid=${p2Uid}, winnerUid=${winnerUid}`);
 
   const p1 = await getUserById(p1Uid);
   const p2 = await getUserById(p2Uid);
@@ -98,6 +120,9 @@ async function updateElo(p1Uid, p2Uid, winnerUid) {
   if (!p1 || !p2) {
     throw new Error("One or both users not found");
   }
+
+  let client;
+  client = await pool.connect();
 
   // FIX 1: Explicitly convert to Number. 
   // This prevents string concatenation ("1400" + 16 = "140016")
@@ -126,17 +151,18 @@ async function updateElo(p1Uid, p2Uid, winnerUid) {
   }
 
   // 5. Update database using firebase_uid
-  await pool.query("UPDATE users SET rating=$1 WHERE firebase_uid=$2", [
+  await client.query("UPDATE users SET rating=$1 WHERE firebase_uid=$2", [
     newRating1,
     p1Uid,
   ]);
 
-  await pool.query("UPDATE users SET rating=$1 WHERE firebase_uid=$2", [
+  await client.query("UPDATE users SET rating=$1 WHERE firebase_uid=$2", [
     newRating2,
     p2Uid,
   ]);
 
   // console.log(`Elo updated: ${p1.name} (${rating1} -> ${newRating1}), ${p2.name} (${rating2} -> ${newRating2})`);
+  client?.release();
 
   return {
     [p1Uid]: { newRating: newRating1, diff: newRating1 - rating1 },
@@ -152,7 +178,11 @@ async function searchUsers(searchTerm) {
         LIMIT 10;
     `;
     // ILIKE means case-insensitive. % allows partial matches before/after the term
-    const result = await pool.query(query, [`%${searchTerm}%`]);
+  let client;
+  client = await pool.connect();
+
+  const result = await client.query(query, [`%${searchTerm}%`]);
+  client?.release();
     return result.rows;
 }
 
@@ -166,7 +196,10 @@ async function getLeaderboard(limit = 50) {
     ORDER BY rating DESC 
     LIMIT $1;
   `;
-  const result = await pool.query(query, [limit]);
+  let client;
+  client = await pool.connect();
+  const result = await client.query(query, [limit]);
+  client?.release();
   return result.rows;
 }
 
