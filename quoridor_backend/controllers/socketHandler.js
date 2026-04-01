@@ -269,5 +269,17 @@ module.exports = (io) => {
                 }
             }
         });
+
+        // --- 6. RESIGN MATCH ---
+        socket.on('resign', ({ roomId }) => {
+            const game = activeGames[roomId];
+            if (game && game.p1 && game.p2) {
+                // If Player 1 clicked resign, Player 2 is the winner (and vice versa)
+                const winnerUid = game.p1.socketId === socket.id ? game.p2.uid : game.p1.uid;
+                
+                // End the game with the reason "forfeit"
+                endGameHelper(io, roomId, game, winnerUid, 'forfeit');
+            }
+        });
     });
 };

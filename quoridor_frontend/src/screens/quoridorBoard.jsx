@@ -290,6 +290,9 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
     { sender: "System", text: "Match started. Good luck!" }
   ]);
 
+  // Modal states
+  const [showResignModal, setShowResignModal] = useState(false);
+
   // --- AUTO-SCROLL EFFECT ---
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -329,6 +332,39 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
       setLastSyncTime(Date.now());
     }
   }, [socket, roomId, myRole]);
+
+  // const handleResign = () => {
+  //   // Add a quick confirmation so they don't accidentally click it during a tense match!
+  //   const confirmResign = window.confirm("Are you sure you want to resign?");
+  //   if (!confirmResign) return;
+
+  //   if (isBotMode) {
+  //     // If playing the bot, handle it locally instantly
+  //     const winnerRole = myRole === "p1" ? "p2" : "p1";
+  //     setState((prev) => ({ ...prev, winner: winnerRole }));
+  //     setWinReason("forfeit");
+  //     setIsClockRunning(false);
+  //   } else if (socket && roomId) {
+  //     // If multiplayer, tell the server we surrender
+  //     socket.emit("resign", { roomId });
+  //   }
+  // };
+
+  // This is the actual logic that runs when they click "Yes, Resign" inside your custom modal
+  const confirmResign = () => {
+    setShowResignModal(false); // Close the custom modal first
+
+    if (isBotMode) {
+      // If playing the bot, handle it locally instantly
+      const winnerRole = myRole === "p1" ? "p2" : "p1";
+      setState((prev) => ({ ...prev, winner: winnerRole }));
+      setWinReason("forfeit");
+      setIsClockRunning(false);
+    } else if (socket && roomId) {
+      // If multiplayer, tell the server we surrender
+      socket.emit("resign", { roomId });
+    }
+  };
 
 
   const handleWallClick = useCallback((type, r, c, isFromSocket = false) => {
@@ -996,17 +1032,57 @@ export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
           </div>
         )}
 
-        {/* Game Controls */}
+        {/* Game Controls
         <div className="p-4 bg-[#241c15] border-t border-[#3d2b1f] flex gap-2">
-          <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
+          <button 
+            onClick={handleResign}
+            className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
             🏳️ Resign
           </button>
-          {/* <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
+          {/* <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] hover:text-red-400 text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
             🤝 Draw
-          </button> */}
+          </button> }
+        </div> */}
+
+        {/* Game Controls */}
+        <div className="p-4 bg-[#241c15] border-t border-[#3d2b1f] flex gap-2">
+          <button 
+            onClick={() => setShowResignModal(true)} // 👈 Changed this line!
+            className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] hover:text-red-400 text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            🏳️ Resign
+          </button>
         </div>
 
       </aside>
+
+      {/* --- CUSTOM RESIGN MODAL --- */}
+      {showResignModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="bg-[#1a140f] border border-[#3d2b1f] rounded-2xl p-6 md:p-8 shadow-2xl max-w-sm w-full text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-5xl mb-4">🏳️</div>
+            <h2 className="text-2xl font-extrabold text-white mb-2 tracking-tight">Surrender?</h2>
+            <p className="text-[#a08b74] mb-8 text-sm md:text-base">
+              Are you sure you want to resign this match? This will count as a loss and affect your Elo rating.
+            </p>
+            
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowResignModal(false)}
+                className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] hover:text-white py-3 rounded-xl font-bold transition-colors border border-[#3d2b1f]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmResign}
+                className="flex-1 bg-red-900/20 hover:bg-red-900/50 text-red-500 hover:text-red-400 border border-red-900/50 hover:border-red-500/50 py-3 rounded-xl font-bold transition-all"
+              >
+                Yes, Resign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
      {/* --- LEAVE CONFIRMATION MODAL --- */}
      {blocker.state === "blocked" && (
