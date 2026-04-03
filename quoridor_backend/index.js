@@ -47,7 +47,7 @@ app.get("/", (req, res) => {
 
 const server = http.createServer(app); // Create the HTTP server using Express
 const io = new Server(server, {
-  cors: { origin: "http://localhost:5173" } // Your React URL
+  cors: { origin: "https://quoridor-frontend.onrender.com" } // Your React URL
 });
 
 // Pass the 'io' instance to your handler
