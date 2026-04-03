@@ -31,11 +31,15 @@ export default function Layout({ children }) {
                     
                     {/* Quoridor "Logo" (Top) */}
                     <Link to="/" className="w-full flex justify-center mb-6" title="Home">
-                    <div className="w-full flex justify-center mb-6">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#d4700a] to-[#8a4600] flex items-center justify-center shadow-lg border border-[#f08a1c]/30">
-                            <span className="text-white font-extrabold text-xl font-mono leading-none tracking-tighter">Q</span>
+                        <div className="w-full flex justify-center">
+                            <div className="w-15 h-15 rounded-lg flex items-center justify-center shadow-lg border border-[#f08a1c]/30 overflow-hidden">
+                                <img
+                                    src="/logo.png"
+                                    alt="Quoridor Logo"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
                         </div>
-                    </div>
                     </Link>
 
                     {/* Play / Board Icon */}

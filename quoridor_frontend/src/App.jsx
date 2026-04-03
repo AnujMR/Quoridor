@@ -1,6 +1,6 @@
 // src/App.jsx
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // <-- Import useState
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { useAuthStore } from "./store/useAuthStore";
@@ -14,10 +14,14 @@ import GameLobby from "./screens/gameLobby";
 import ProtectedRoute from './components/ProtectedRoute';
 import LeaderboardPage from "./screens/leaderboard";
 import Layout from './components/Layout';
+import SplashScreen from './screens/splashScreen'; // <-- Import the Splash Screen
 
 function App() {
     const login = useAuthStore((state) => state.login);
     const logout = useAuthStore((state) => state.logout);
+
+    // NEW: State to control Splash Screen visibility
+    const [showSplash, setShowSplash] = useState(true);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -37,23 +41,24 @@ function App() {
         return () => unsubscribe();
     }, [login, logout]);
 
-    // Define the router object
     const router = createBrowserRouter([
-        { path: "/", element: <Login /> },
+        // Auto-redirect to home if logged in, otherwise show login
+        {
+            path: "/",
+            element: useAuthStore.getState().isAuthenticated ? <Navigate to="/home" replace /> : <Login />
+        },
         { path: "/login", element: <Login /> },
         { path: "/signup", element: <SignUp /> },
         {
-            // All protected routes go here
             element: <ProtectedRoute><Outlet /></ProtectedRoute>,
             children: [
                 {
-                    // All routes needing the Sidebar/Layout go here
                     element: <Layout><Outlet /></Layout>,
                     children: [
                         { path: "/home", element: <HomePage /> },
                         { path: "/board", element: <GameLobby /> },
-                        { path: "/profile", element: <ProfilePage /> }, // 👈 View your own profile
-                        { path: "/profile/:userId", element: <ProfilePage /> }, // 👈 NEW: View a friend's profile
+                        { path: "/profile", element: <ProfilePage /> },
+                        { path: "/profile/:userId", element: <ProfilePage /> },
                         { path: "/leaderboard", element: <LeaderboardPage /> },
                     ]
                 }
@@ -62,7 +67,14 @@ function App() {
         { path: "*", element: <Navigate to="/" replace /> }
     ]);
 
-    return <RouterProvider router={router} />;
+    return (
+        <>
+            {/* Show Splash Screen on top of everything. When it finishes, it sets showSplash to false */}
+            {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+
+            <RouterProvider router={router} />
+        </>
+    );
 }
 
 export default App;
