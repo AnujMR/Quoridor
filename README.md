@@ -7,12 +7,12 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Firebase](https://img.shields.io/badge/firebase-ffca28?style=for-the-badge&logo=firebase&logoColor=black)
 
-## 📖 Overview
+## Overview
 Quoridor is a real-time, asynchronous multiplayer web game based on the classic board game of strategy and mazes. Players compete 1-on-1 to navigate their pawn to the opposite side of the board while strategically placing walls to block their opponent's path. 
 
 This platform features a competitive matchmaking system, Elo-based rankings, real-time in-game chat, timed game modes, and a persistent history of matches and player statistics.
 
-### ✨ Key Features
+### Key Features
 * **Real-Time Multiplayer:** Instantaneous move synchronization and clock management powered by Socket.IO.
 * **Matchmaking & Elo Rating:** Automated queue system with dynamic Elo rating calculations updated instantly upon game completion.
 * **Game Modes:** Play Timed (Rapid/Blitz) or Untimed matches.
@@ -23,7 +23,7 @@ This platform features a competitive matchmaking system, Elo-based rankings, rea
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 * **Frontend:** React.js, Vite, Tailwind CSS, Zustand (State Management), React Router.
 * **Backend:** Node.js, Express.js, Socket.IO.
 * **Database:** PostgreSQL.
@@ -31,7 +31,7 @@ This platform features a competitive matchmaking system, Elo-based rankings, rea
 
 ---
 
-## 🚀 Local Installation Guide
+## Local Installation Guide
 
 Want to run Quoridor locally or contribute to the project? Follow these step-by-step instructions to get both the backend and frontend running on your machine.
 
@@ -40,3 +40,26 @@ Before you begin, ensure you have the following installed:
 * [Node.js](https://nodejs.org/) (v16 or higher)
 * [PostgreSQL](https://www.postgresql.org/) (Running locally, or a cloud database URL like Supabase/Render)
 * A [Firebase Project](https://firebase.google.com/) for authentication credentials.
+
+### 1. Clone the Repository
+```bash
+git clone [https://github.com/AnujMR/Quoridor.git](https://github.com/AnujMR/Quoridor.git)
+```
+
+### 2. Open the Quoridor Folder in Any Code Editor
+
+### 3. Start Backend
+```bash
+cd quoridor_backend
+npm i
+node index.js
+```
+
+### 4. Start Frontend
+```bash
+cd quoridor_frontend
+npm i
+npm run dev
+```
+
+### Once Frontend has Started, You Can Visit http://localhost:5173 and Explore Quoridor.
