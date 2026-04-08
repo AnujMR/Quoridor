@@ -43,7 +43,7 @@ Before you begin, ensure you have the following installed:
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/AnujMR/Quoridor.git](https://github.com/AnujMR/Quoridor.git)
+git clone https://github.com/AnujMR/Quoridor.git
 ```
 
 ### 2. Open the Quoridor Folder in Any Code Editor
