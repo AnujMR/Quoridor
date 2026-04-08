@@ -38,8 +38,8 @@ Want to run Quoridor locally or contribute to the project? Follow these step-by-
 ### Prerequisites
 Before you begin, ensure you have the following installed:
 * [Node.js](https://nodejs.org/) (v16 or higher)
-* [PostgreSQL](https://www.postgresql.org/) (Running locally, or a cloud database URL like Supabase/Render)
-* A [Firebase Project](https://firebase.google.com/) for authentication credentials.
+* [PostgreSQL](https://www.postgresql.org/) (Create a database on NeonDB and include the database URL in .env in 'quoridor_backend' folder)
+* A [Firebase Project](https://firebase.google.com/) for authentication credentials. (create a .env file in 'quoridor_fronend' folder)
 
 ### 1. Clone the Repository
 ```bash
