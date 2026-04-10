@@ -155,9 +155,9 @@ module.exports = (io) => {
     }, 1000);
 
     // MATCHMAKING LOOP
-    // setInterval(() => {
-    //     tryMatchmaking(io);
-    // }, 1000);
+    setInterval(() => {
+        tryMatchmaking(io);
+    }, 1000);
 
     io.on('connection', (socket) => {
         // console.log(`New connection: ${socket.id}`);
