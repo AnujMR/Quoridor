@@ -106,28 +106,38 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
             id: userProfile.firebase_uid,
             name: userProfile?.name || "Anonymous",
             rating: userProfile?.rating || 1400,
-            joinedAt: Date.now() // ✅ ADD THIS
+            joinedAt: Date.now()
         };
 
         waitingQueues[mode].push(socket);
 
-        // console.log(`${mode.toUpperCase()} Queue size: ${waitingQueues[mode].length}`);
-
         const queue = waitingQueues[mode];
 
-        //  TRY ELO-BASED MATCH FIRST
+        // STEP 1: TRY ELO MATCH WITH DYNAMIC RANGE
         for (let i = 0; i < queue.length; i++) {
             for (let j = i + 1; j < queue.length; j++) {
 
                 const s1 = queue[i];
                 const s2 = queue[j];
 
-                const ratingDiff = Math.abs(s1.userProfile.rating - s2.userProfile.rating);
+                const now = Date.now();
 
-                // ✅ CONDITION 1: ELO <= 200
-                if (ratingDiff <= 200) {
+                const wait1 = now - s1.userProfile.joinedAt;
+                const wait2 = now - s2.userProfile.joinedAt;
 
-                    // REMOVE BOTH FROM QUEUE
+                const maxWait = Math.max(wait1, wait2);
+
+                let allowedDiff = 100;
+
+                if (maxWait > 5000) allowedDiff = 200;
+                if (maxWait > 10000) allowedDiff = Infinity; // FIFO fallback
+
+                const ratingDiff = Math.abs(
+                    s1.userProfile.rating - s2.userProfile.rating
+                );
+
+                if (ratingDiff <= allowedDiff) {
+
                     queue.splice(j, 1);
                     queue.splice(i, 1);
 
@@ -137,17 +147,17 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
             }
         }
 
-        //  CONDITION 2: WAITED > 10 SEC → FIFO MATCH
+        // STEP 2: STRICT FIFO AFTER 10 SEC (EXTRA SAFETY)
         if (queue.length >= 2) {
             const now = Date.now();
 
             const first = queue[0];
             const second = queue[1];
 
-            if (
-                (now - first.userProfile.joinedAt > 10000) ||
-                (now - second.userProfile.joinedAt > 10000)
-            ) {
+            const wait1 = now - first.userProfile.joinedAt;
+            const wait2 = now - second.userProfile.joinedAt;
+
+            if (wait1 > 10000 || wait2 > 10000) {
                 queue.shift();
                 queue.shift();
 
