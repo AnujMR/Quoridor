@@ -73,6 +73,25 @@ module.exports = (io) => {
         }
     }, 1000);
 
+    function createMatch(p1Socket, p2Socket, mode) {
+    const roomId = uuidv4();
+
+    const matchData = {
+        roomId,
+        players: { 
+            p1: p1Socket.userProfile, 
+            p2: p2Socket.userProfile 
+        },
+        game_type: mode === 'timed' ? 'rapid' : 'untimed'
+    };
+
+    p1Socket.join(roomId);
+    p2Socket.join(roomId);
+
+    p1Socket.emit('match_found', { ...matchData, myRole: 'p1' });
+    p2Socket.emit('match_found', { ...matchData, myRole: 'p2' });
+}
+
     io.on('connection', (socket) => {
         // console.log(`New connection: ${socket.id}`);
 socket.on('start_search', async ({ userId, mode = 'standard' }) => {
