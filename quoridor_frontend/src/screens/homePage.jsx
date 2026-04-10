@@ -161,6 +161,20 @@ export default function HomePage() {
             </div>
             <div className="text-yellow-500/80 text-2xl relative z-10">›</div>
           </Link>
+          
+          {/* RULE BOOK */}
+<Link to="/rules" className="bg-[#1a140f] border border-[#3d2b1f] p-6 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-[#201812] transition-colors">
+  <div className="flex items-center gap-4">
+    <div className="w-14 h-14 bg-[#2a2118] rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+      📜
+    </div>
+    <div>
+      <h3 className="text-lg font-bold text-white">Rule Book</h3>
+      <p className="text-[#a08b74] text-sm">Learn how to play</p>
+    </div>
+  </div>
+  <div className="text-[#d4700a] text-2xl">›</div>
+</Link>
 
         </div>
 
