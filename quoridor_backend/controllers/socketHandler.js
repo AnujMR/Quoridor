@@ -75,44 +75,71 @@ module.exports = (io) => {
 
     io.on('connection', (socket) => {
         // console.log(`New connection: ${socket.id}`);
+socket.on('start_search', async ({ userId, mode = 'standard' }) => {
 
-        socket.on('start_search', async ({ userId, mode = 'standard' }) => {
+    if(!waitingQueues[mode]) mode = 'standard';
+    if (waitingQueues[mode].find(s => s.id === socket.id)) return;
 
-            if(!waitingQueues[mode]) mode = 'standard';
-            if (waitingQueues[mode].find(s => s.id === socket.id)) return;
+    try {
+        const userProfile = await getUserById(userId);
 
-            try {
-                const userProfile = await getUserById(userId);
-                socket.userProfile = {
-                    id: userProfile.firebase_uid,
-                    name: userProfile?.name || "Anonymous",
-                    rating: userProfile?.rating || 1400
-                };
+        socket.userProfile = {
+            id: userProfile.firebase_uid,
+            name: userProfile?.name || "Anonymous",
+            rating: userProfile?.rating || 1400,
+            joinedAt: Date.now() // ✅ ADD THIS
+        };
 
-                waitingQueues[mode].push(socket);
-                // console.log(`${mode.toUpperCase()} Queue size: ${waitingQueues[mode].length}`);
+        waitingQueues[mode].push(socket);
 
-                if (waitingQueues[mode].length >= 2) {
-                    const p1Socket = waitingQueues[mode].shift();
-                    const p2Socket = waitingQueues[mode].shift();
-                    const roomId = uuidv4();
+        // console.log(`${mode.toUpperCase()} Queue size: ${waitingQueues[mode].length}`);
 
-                    const matchData = {
-                        roomId,
-                        players: { p1: p1Socket.userProfile, p2: p2Socket.userProfile },
-                        game_type: mode === 'timed' ? 'rapid' : 'untimed' // Default matchmaking to rapid for now
-                    };
+        const queue = waitingQueues[mode];
 
-                    p1Socket.join(roomId);
-                    p2Socket.join(roomId);
+        //  TRY ELO-BASED MATCH FIRST
+        for (let i = 0; i < queue.length; i++) {
+            for (let j = i + 1; j < queue.length; j++) {
 
-                    p1Socket.emit('match_found', { ...matchData, myRole: 'p1' });
-                    p2Socket.emit('match_found', { ...matchData, myRole: 'p2' });
+                const s1 = queue[i];
+                const s2 = queue[j];
+
+                const ratingDiff = Math.abs(s1.userProfile.rating - s2.userProfile.rating);
+
+                // ✅ CONDITION 1: ELO <= 200
+                if (ratingDiff <= 200) {
+
+                    // REMOVE BOTH FROM QUEUE
+                    queue.splice(j, 1);
+                    queue.splice(i, 1);
+
+                    createMatch(s1, s2, mode);
+                    return;
                 }
-            } catch (err) {
-                console.error("Matchmaking error:", err);
             }
-        });
+        }
+
+        //  CONDITION 2: WAITED > 10 SEC → FIFO MATCH
+        if (queue.length >= 2) {
+            const now = Date.now();
+
+            const first = queue[0];
+            const second = queue[1];
+
+            if (
+                (now - first.userProfile.joinedAt > 10000) ||
+                (now - second.userProfile.joinedAt > 10000)
+            ) {
+                queue.shift();
+                queue.shift();
+
+                createMatch(first, second, mode);
+            }
+        }
+
+    } catch (err) {
+        console.error("Matchmaking error:", err);
+    }
+});
 
         socket.on('cancel_search', () => {
 
