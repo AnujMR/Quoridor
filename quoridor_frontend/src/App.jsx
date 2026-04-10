@@ -15,6 +15,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LeaderboardPage from "./screens/leaderboard";
 import Layout from './components/Layout';
 import SplashScreen from './screens/splashScreen'; // <-- Import the Splash Screen
+import RuleBook from "./screens/RuleBook";
 
 function App() {
     const login = useAuthStore((state) => state.login);
@@ -60,6 +61,7 @@ function App() {
                         { path: "/profile", element: <ProfilePage /> },
                         { path: "/profile/:userId", element: <ProfilePage /> },
                         { path: "/leaderboard", element: <LeaderboardPage /> },
+                        { path: "/rules", element: <RuleBook /> },
                     ]
                 }
             ]
