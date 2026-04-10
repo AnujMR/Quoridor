@@ -47,8 +47,89 @@ async function endGameHelper(io, roomId, game, winnerUid, reason) {
         console.error("Elo Update Error:", eloErr);
         io.to(roomId).emit('game_over', { winnerUid, reason, ratings: null });
     } finally {
-        // Clean up the room to prevent memory leaks
         delete activeGames[roomId];
+    }
+}
+
+// CREATE MATCH
+function createMatch(p1Socket, p2Socket, mode) {
+    const roomId = uuidv4();
+
+    const matchData = {
+        roomId,
+        players: { 
+            p1: p1Socket.userProfile, 
+            p2: p2Socket.userProfile 
+        },
+        game_type: mode === 'timed' ? 'rapid' : 'untimed'
+    };
+
+    p1Socket.join(roomId);
+    p2Socket.join(roomId);
+
+    p1Socket.emit('match_found', { ...matchData, myRole: 'p1' });
+    p2Socket.emit('match_found', { ...matchData, myRole: 'p2' });
+}
+
+// RANGE CALCULATION (NEW)
+function getRange(player) {
+    const now = Date.now();
+    const wait = now - player.userProfile.joinedAt;
+
+    let diff = 100;
+
+    if (wait > 5000) diff = 200;
+    if (wait > 10000) diff = Infinity;
+
+    return {
+        min: player.userProfile.rating - diff,
+        max: player.userProfile.rating + diff
+    };
+}
+
+// MATCHMAKING LOOP (NEW - TIME DRIVEN)
+function tryMatchmaking(io) {
+    for (const mode in waitingQueues) {
+        const queue = waitingQueues[mode];
+
+        for (let i = 0; i < queue.length; i++) {
+            for (let j = i + 1; j < queue.length; j++) {
+
+                const s1 = queue[i];
+                const s2 = queue[j];
+
+                const r1 = getRange(s1);
+                const r2 = getRange(s2);
+
+                const isOverlap = !(r1.max < r2.min || r2.max < r1.min);
+
+                if (isOverlap) {
+                    queue.splice(j, 1);
+                    queue.splice(i, 1);
+
+                    createMatch(s1, s2, mode);
+                    return;
+                }
+            }
+        }
+
+        // FIFO fallback after 10 sec
+        if (queue.length >= 2) {
+            const now = Date.now();
+
+            const first = queue[0];
+            const second = queue[1];
+
+            const wait1 = now - first.userProfile.joinedAt;
+            const wait2 = now - second.userProfile.joinedAt;
+
+            if (wait1 > 10000 || wait2 > 10000) {
+                queue.shift();
+                queue.shift();
+
+                createMatch(first, second, mode);
+            }
+        }
     }
 }
 
@@ -73,102 +154,37 @@ module.exports = (io) => {
         }
     }, 1000);
 
-    function createMatch(p1Socket, p2Socket, mode) {
-    const roomId = uuidv4();
-
-    const matchData = {
-        roomId,
-        players: { 
-            p1: p1Socket.userProfile, 
-            p2: p2Socket.userProfile 
-        },
-        game_type: mode === 'timed' ? 'rapid' : 'untimed'
-    };
-
-    p1Socket.join(roomId);
-    p2Socket.join(roomId);
-
-    p1Socket.emit('match_found', { ...matchData, myRole: 'p1' });
-    p2Socket.emit('match_found', { ...matchData, myRole: 'p2' });
-}
+    // MATCHMAKING LOOP
+    // setInterval(() => {
+    //     tryMatchmaking(io);
+    // }, 1000);
 
     io.on('connection', (socket) => {
         // console.log(`New connection: ${socket.id}`);
-socket.on('start_search', async ({ userId, mode = 'standard' }) => {
 
-    if(!waitingQueues[mode]) mode = 'standard';
-    if (waitingQueues[mode].find(s => s.id === socket.id)) return;
+        socket.on('start_search', async ({ userId, mode = 'standard' }) => {
 
-    try {
-        const userProfile = await getUserById(userId);
+            if(!waitingQueues[mode]) mode = 'standard';
+            if (waitingQueues[mode].find(s => s.id === socket.id)) return;
 
-        socket.userProfile = {
-            id: userProfile.firebase_uid,
-            name: userProfile?.name || "Anonymous",
-            rating: userProfile?.rating || 1400,
-            joinedAt: Date.now()
-        };
+            try {
+                const userProfile = await getUserById(userId);
 
-        waitingQueues[mode].push(socket);
+                socket.userProfile = {
+                    id: userProfile.firebase_uid,
+                    name: userProfile?.name || "Anonymous",
+                    rating: userProfile?.rating || 1400,
+                    joinedAt: Date.now()
+                };
 
-        const queue = waitingQueues[mode];
+                waitingQueues[mode].push(socket);
 
-        // STEP 1: TRY ELO MATCH WITH DYNAMIC RANGE
-        for (let i = 0; i < queue.length; i++) {
-            for (let j = i + 1; j < queue.length; j++) {
+                // No matching here (handled by loop)
 
-                const s1 = queue[i];
-                const s2 = queue[j];
-
-                const now = Date.now();
-
-                const wait1 = now - s1.userProfile.joinedAt;
-                const wait2 = now - s2.userProfile.joinedAt;
-
-                const maxWait = Math.max(wait1, wait2);
-
-                let allowedDiff = 100;
-
-                if (maxWait > 5000) allowedDiff = 200;
-                if (maxWait > 10000) allowedDiff = Infinity; // FIFO fallback
-
-                const ratingDiff = Math.abs(
-                    s1.userProfile.rating - s2.userProfile.rating
-                );
-
-                if (ratingDiff <= allowedDiff) {
-
-                    queue.splice(j, 1);
-                    queue.splice(i, 1);
-
-                    createMatch(s1, s2, mode);
-                    return;
-                }
+            } catch (err) {
+                console.error("Matchmaking error:", err);
             }
-        }
-
-        // STEP 2: STRICT FIFO AFTER 10 SEC (EXTRA SAFETY)
-        if (queue.length >= 2) {
-            const now = Date.now();
-
-            const first = queue[0];
-            const second = queue[1];
-
-            const wait1 = now - first.userProfile.joinedAt;
-            const wait2 = now - second.userProfile.joinedAt;
-
-            if (wait1 > 10000 || wait2 > 10000) {
-                queue.shift();
-                queue.shift();
-
-                createMatch(first, second, mode);
-            }
-        }
-
-    } catch (err) {
-        console.error("Matchmaking error:", err);
-    }
-});
+        });
 
         socket.on('cancel_search', () => {
 
@@ -180,9 +196,6 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
         // --- CHAT LOGIC ---
         socket.on('chat_message', (data) => {
             const { roomId, message } = data;
-
-            // Broadcast the message to the other player in the room
-            // Using socket.to(roomId) ensures the sender doesn't receive their own message back
             socket.to(roomId).emit('sync_chat', message);
         });
 
@@ -209,7 +222,6 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
             const game = activeGames[roomId];
             const playerName = socket.userProfile?.name || "Anonymous";
 
-            // Safely assign players without overwriting
             if (!game.p1) {
                 game.p1 = { uid, socketId: socket.id, name: playerName };
             } else if (!game.p2 && game.p1.uid !== uid) {
@@ -219,21 +231,19 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
             socket.roomId = roomId;
             socket.uid = uid;
 
-            // Start the official clock if both players are present
             if (game.isTimed && game.p1 && game.p2 && !game.lastMoveTime) {
                 game.lastMoveTime = Date.now();
                 io.to(roomId).emit('sync_clocks', { p1Time: game.p1Time, p2Time: game.p2Time, turn: 'p1' });
             }
         });
 
-        // --- 2. UNIFIED GAME ACTION (Moves & Time Calculation) ---
+        // --- 2. UNIFIED GAME ACTION ---
         socket.on('game_action', async (data) => {
             const { roomId, action } = data;
             const game = activeGames[roomId];
 
             if (!game) return;
 
-            // Update Time if game is timed
             if (game.isTimed && game.lastMoveTime) {
                 const now = Date.now();
                 const timeSpent = now - game.lastMoveTime;
@@ -246,11 +256,9 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
                 game.lastMoveTime = now;
             }
 
-            // Update state
             game.currentTurn = game.currentTurn === 'p1' ? 'p2' : 'p1';
             game.moves_count += 1;
 
-            // Broadcast the move and clock sync immediately
             socket.to(roomId).emit('sync_action', {
                 action,
                 p1Time: game.p1Time,
@@ -259,10 +267,8 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
                 isTimed: game.isTimed
             });
 
-            // Check Win Condition
             if (action.isWin) {
                 // console.log(`Winning move detected in room ${roomId} by socket ${socket.id}`);
-                // Use the helper to process Elo, emit game_over, and save to DB
                 endGameHelper(io, roomId, game, socket.uid, 'normal');
             }
         });
@@ -280,12 +286,10 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
        socket.on('leave_room', async ({ roomId }) => {
             const game = activeGames[roomId];
             if (game) {
-                // ✅ SAFETY CHECK: Make sure BOTH p1 and p2 exist before trying to read their UIDs
                 if (game.p1 && game.p2 && (game.p1.socketId === socket.id || game.p2.socketId === socket.id)) {
                     const winnerUid = game.p1.socketId === socket.id ? game.p2.uid : game.p1.uid;
                     endGameHelper(io, roomId, game, winnerUid, 'forfeit');
                 } else {
-                    // The game never fully started. Just silently clean up the room.
                     delete activeGames[roomId];
                 }
             }
@@ -303,13 +307,11 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
             }
         });
         */
-       // --- 5. DISCONNECT (Unexpected Forfeit) ---
-        socket.on('disconnect', async () => {
+       socket.on('disconnect', async () => {
             const roomId = socket.roomId;
             const game = activeGames[roomId];
 
             if (game) {
-                // ✅ SAME SAFETY CHECK HERE
                 if (game.p1 && game.p2) {
                     const winnerUid = game.p1.socketId === socket.id ? game.p2.uid : game.p1.uid;
                     endGameHelper(io, roomId, game, winnerUid, 'forfeit');
@@ -317,8 +319,7 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
                     delete activeGames[roomId];
                 }
             }
-            
-            // Clean up matchmaking queues just in case they disconnected while searching
+
             for (const queueMode in waitingQueues) {
                 if (waitingQueues[queueMode]) {
                     waitingQueues[queueMode] = waitingQueues[queueMode].filter(s => s.id !== socket.id);
@@ -326,14 +327,10 @@ socket.on('start_search', async ({ userId, mode = 'standard' }) => {
             }
         });
 
-        // --- 6. RESIGN MATCH ---
         socket.on('resign', ({ roomId }) => {
             const game = activeGames[roomId];
             if (game && game.p1 && game.p2) {
-                // If Player 1 clicked resign, Player 2 is the winner (and vice versa)
                 const winnerUid = game.p1.socketId === socket.id ? game.p2.uid : game.p1.uid;
-                
-                // End the game with the reason "forfeit"
                 endGameHelper(io, roomId, game, winnerUid, 'forfeit');
             }
         });
