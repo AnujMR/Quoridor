@@ -3,57 +3,76 @@ import { useNavigate } from "react-router-dom";
 export default function RuleBook() {
   const navigate = useNavigate();
 
-  return (
-    <div className="min-h-screen bg-[#1a140f] text-white flex items-center justify-center p-6">
-      <div className="max-w-3xl w-full bg-[#241c15] border border-[#3d2b1f] rounded-2xl p-6 shadow-xl">
+  const rules = [
+    {
+      img: "/rule1.png",
+      text: "Reach the opposite side of the board before your opponent to win."
+    },
+    {
+      img: "/rule2.png",
+      text: "You can move up, down, left, or right."
+    },
+    {
+      img: "/rule3.png",
+      text: "Place walls strategically to block your opponent’s path."
+    },
+    {
+      img: "/rule5.png",
+      text: "You must always leave at least one path open for your opponent."
+    },
+    {
+      img: "/rule4.png",
+      text: "You can jump over your opponent if they block your path."
+    }
+  ];
 
-        <h1 className="text-3xl font-bold mb-6 text-center text-[#d4700a]">
+  return (
+    <div className="min-h-screen bg-[#1a140f] text-white px-6 py-10">
+      
+      <div className="max-w-6xl mx-auto">
+
+        {/* TITLE */}
+        <h1 className="text-4xl font-extrabold mb-12 text-center text-[#d4700a]">
           📜 Game Rules
         </h1>
 
-        {/* RULE 1 */}
-        <div className="mb-6">
-          <img src="/rule1.png" className="rounded-xl mb-2 w-full" />
-          <p className="text-[#f0d9b5]">
-            Reach the opposite side of the board before your opponent.
-          </p>
-        </div>
+        {/* RULES */}
+        <div className="flex flex-col gap-16">
 
-         {/* RULE 2 */}
-        <div className="mb-6">
-          <img src="/rule2.png" className="rounded-xl mb-2 w-full" />
-          <p className="text-[#f0d9b5]">
-            Can go right, left , up and down.
-          </p>
-        </div>
+          {rules.map((rule, index) => (
+            <div
+              key={index}
+              className="flex flex-col md:flex-row items-center gap-10"
+            >
 
-        {/* RULE 3 */}
-        <div className="mb-6">
-          <img src="/rule3.png" className="rounded-xl mb-2 w-full" />
-          <p className="text-[#f0d9b5]">
-            Place walls strategically to block your opponent’s path.
-          </p>
-        </div>
+              {/* LEFT TEXT */}
+              <div className="flex-1">
+                <h2 className="text-3xl font-bold text-[#d4700a] mb-4">
+                  Rule {index + 1}
+                </h2>
+                <p className="text-lg text-[#f0d9b5] leading-relaxed">
+                  {rule.text}
+                </p>
+              </div>
 
-        {/* RULE 4 */}
-        <div className="mb-6">
-          <img src="/rule4.png" className="rounded-xl mb-2 w-full" />
-          <p className="text-[#f0d9b5]">
-            You must always leave at least one path open for opponent.
-          </p>
-        </div>
-                {/* RULE 5 */}
-        <div className="mb-6">
-          <img src="/rule5.png" className="rounded-xl mb-2 w-full" />
-          <p className="text-[#f0d9b5]">
-            It is possible to jump over the opponent if he blocked your path.
-          </p>
+              {/* RIGHT IMAGE */}
+              <div className="flex-1">
+                <img
+                  src={rule.img}
+                  alt={`rule-${index}`}
+                  className="w-full max-h-[350px] object-contain rounded-xl"
+                />
+              </div>
+
+            </div>
+          ))}
+
         </div>
 
         {/* OK BUTTON */}
         <button
-          onClick={() => navigate("/")}
-          className="w-full bg-[#d4700a] hover:bg-[#f08a1c] py-3 rounded-xl font-bold"
+          onClick={() => navigate("/home")}
+          className="w-full bg-[#d4700a] hover:bg-[#f08a1c] py-4 rounded-xl font-bold mt-12 text-lg"
         >
           OK
         </button>
