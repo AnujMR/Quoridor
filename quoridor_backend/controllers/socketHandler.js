@@ -71,7 +71,7 @@ function createMatch(p1Socket, p2Socket, mode) {
     p2Socket.emit('match_found', { ...matchData, myRole: 'p2' });
 }
 
-// RANGE CALCULATION (NEW)
+// RANGE CALCULATION
 function getRange(player) {
     const now = Date.now();
     const wait = now - player.userProfile.joinedAt;
@@ -87,7 +87,7 @@ function getRange(player) {
     };
 }
 
-// MATCHMAKING LOOP (NEW - TIME DRIVEN)
+// MATCHMAKING LOOP
 function tryMatchmaking(io) {
     for (const mode in waitingQueues) {
         const queue = waitingQueues[mode];
@@ -108,7 +108,10 @@ function tryMatchmaking(io) {
                     queue.splice(i, 1);
 
                     createMatch(s1, s2, mode);
-                    return;
+
+                    // ✅ FIX: allow multiple matches in same cycle
+                    i = -1;
+                    break;
                 }
             }
         }
@@ -169,6 +172,12 @@ module.exports = (io) => {
 
             try {
                 const userProfile = await getUserById(userId);
+
+                // ✅ FIX: null check
+                if (!userProfile) {
+                    console.error("User not found:", userId);
+                    return;
+                }
 
                 socket.userProfile = {
                     id: userProfile.firebase_uid,
@@ -268,7 +277,6 @@ module.exports = (io) => {
             });
 
             if (action.isWin) {
-                // console.log(`Winning move detected in room ${roomId} by socket ${socket.id}`);
                 endGameHelper(io, roomId, game, socket.uid, 'normal');
             }
         });
