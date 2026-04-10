@@ -19,11 +19,11 @@ export default function RuleBook() {
           </p>
         </div>
 
-        {/* RULE 2 */}
+         {/* RULE 2 */}
         <div className="mb-6">
           <img src="/rule2.png" className="rounded-xl mb-2 w-full" />
           <p className="text-[#f0d9b5]">
-            Place walls strategically to block your opponent’s path.
+            Can go right, left , up and down.
           </p>
         </div>
 
@@ -31,12 +31,20 @@ export default function RuleBook() {
         <div className="mb-6">
           <img src="/rule3.png" className="rounded-xl mb-2 w-full" />
           <p className="text-[#f0d9b5]">
-            You must always leave at least one path open for both players.
+            Place walls strategically to block your opponent’s path.
           </p>
         </div>
-                {/* RULE 4 */}
+
+        {/* RULE 4 */}
         <div className="mb-6">
           <img src="/rule4.png" className="rounded-xl mb-2 w-full" />
+          <p className="text-[#f0d9b5]">
+            You must always leave at least one path open for opponent.
+          </p>
+        </div>
+                {/* RULE 5 */}
+        <div className="mb-6">
+          <img src="/rule5.png" className="rounded-xl mb-2 w-full" />
           <p className="text-[#f0d9b5]">
             It is possible to jump over the opponent if he blocked your path.
           </p>
