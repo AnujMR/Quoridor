@@ -1,297 +1,8 @@
-// import { useState } from "react";
-
-// const BOARD_SIZE = 9;
-// const CELL_SIZE = 62; // in pixels, for styling
-
-// const Cell = (props) => {
-//   const {
-//     row, col, pawnId, isValidMove,
-//     onDragStart, onDragOver, onDrop, onDragEnd
-//   } = props;
-
-//   const playerIcons = {
-//     p1: "../../pawn1.svg",
-//     p2: "../../pawn2.svg",
-//   };
-
-//   // Fallback colors in case the SVGs fail to load, so you can still test!
-//   // const playerColors = {
-//   //   p1: "bg-blue-600",
-//   //   p2: "bg-red-600",
-//   // };
-
-//   return (
-//     <div
-//       onDragOver={onDragOver}
-//       onDrop={(e) => onDrop(e, row, col)}
-//       className="bg-white flex items-center justify-center relative rounded-[5px] border border-gray-800"
-//       style={{ width: `${CELL_SIZE}px`, height: `${CELL_SIZE}px` }}
-//     >
-//       {/* 1. Highlight Dot for Valid Moves */}
-//       {isValidMove && (
-//         <div className="w-3 h-3 bg-green-500 rounded-full absolute pointer-events-none" />
-//       )}
-
-//       {/* 2. Draggable Pawn */}
-//       {pawnId && (
-//         <div
-//           draggable
-//           onDragStart={(e) => onDragStart(e, pawnId)}
-//           onDragEnd={onDragEnd}
-//           className={`w-[70%] h-[70%] cursor-grab active:cursor-grabbing`}
-//           style={{
-//             backgroundImage: `url(${playerIcons[pawnId]})`,
-//             backgroundSize: 'contain',
-//             backgroundRepeat: 'no-repeat',
-//             backgroundPosition: 'center'
-//           }}
-//         />
-//       )}
-//     </div>
-//   );
-// };
-
-// const QuoridorBoard = () => {
-//   const [state, setState] = useState({
-//     p1: { row: 0, col: 4 },
-//     p2: { row: 8, col: 4 },
-//     turn: "p1",
-//   });
-
-//   // New state variables for drag tracking
-//   const [dragging, setDragging] = useState(null);
-//   const [validMoves, setValidMoves] = useState([]);
-
-//   // Calculate valid orthogonal moves (and handle basic jumping over the opponent)
-//   const getValidMoves = (player, p1, p2) => {
-//     const pos = player === "p1" ? p1 : p2;
-//     const opp = player === "p1" ? p2 : p1;
-//     const moves = [];
-
-//     // Directions: Up, Down, Left, Right
-//     const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-
-//     directions.forEach(([dr, dc]) => {
-//       let nr = pos.row + dr;
-//       let nc = pos.col + dc;
-
-//       // Ensure move is inside the 9x9 board
-//       if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
-//         // If opponent is blocking, check if we can jump over them
-//         if (nr === opp.row && nc === opp.col) {
-//           nr += dr;
-//           nc += dc;
-//           // Ensure the jump landing spot is also within bounds
-//           if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
-//             moves.push({ row: nr, col: nc });
-//           }
-//         } else {
-//           // Normal empty cell
-//           moves.push({ row: nr, col: nc });
-//         }
-//       }
-//     });
-
-//     return moves;
-//   };
-
-//   const handleDragStart = (e, pawnId) => {
-//     // Prevent dragging if it's not this player's turn
-//     if (state.turn !== pawnId) {
-//       e.preventDefault();
-//       return;
-//     }
-
-//     setDragging(pawnId);
-//     setValidMoves(getValidMoves(pawnId, state.p1, state.p2));
-//   };
-
-//   const handleDragOver = (e) => {
-//     e.preventDefault(); // Necessary to allow elements to be "dropped" here
-//   };
-
-//   const handleDrop = (e, row, col) => {
-//     e.preventDefault();
-//     if (!dragging) return;
-
-//     // Verify the drop location is one of the valid targets
-//     const isValid = validMoves.some((m) => m.row === row && m.col === col);
-
-//     if (isValid) {
-//       setState((prev) => ({
-//         ...prev,
-//         [dragging]: { row, col },
-//         turn: prev.turn === "p1" ? "p2" : "p1", // Swap turn
-//       }));
-//     }
-
-//     // Clean up drag states
-//     setDragging(null);
-//     setValidMoves([]);
-//   };
-
-//   const handleDragEnd = () => {
-//     // Fired if the user drops the pawn in an invalid spot (outside the board)
-//     setDragging(null);
-//     setValidMoves([]);
-//   };
-
-//   const isCellValidMove = (row, col) => {
-//     return validMoves.some((m) => m.row === row && m.col === col);
-//   };
-
-//   return (
-//       <div
-//         className={`grid ${state.turn === "p1" ? "bg-blue-200" : "bg-red-200"} p-2 rounded-lg gap-1 shadow-2xl`}
-//         style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, max-content)` }}
-//       >
-//         {Array.from({ length: BOARD_SIZE }).map((_, row) =>
-//           Array.from({ length: BOARD_SIZE }).map((_, col) => {
-//             const isP1 = state.p1.row === row && state.p1.col === col;
-//             const isP2 = state.p2.row === row && state.p2.col === col;
-//             const pawnId = isP1 ? "p1" : isP2 ? "p2" : null;
-
-//             return (
-//               <Cell
-//                 key={`${row}-${col}`}
-//                 row={row}
-//                 col={col}
-//                 pawnId={pawnId}
-//                 isValidMove={isCellValidMove(row, col)}
-//                 onDragStart={handleDragStart}
-//                 onDragOver={handleDragOver}
-//                 onDrop={handleDrop}
-//                 onDragEnd={handleDragEnd}
-//               />
-//             );
-//           })
-//         )}
-//       </div>
-//   );
-// };
-
-// export default QuoridorBoard;
-
-
-
-
-
-
-
-
-
-
-// // import { useState } from "react";
-
-// // // Basic Quoridor Frontend (2-player local, no walls yet)
-// // // Built for Vite + React + Tailwind
-
-// // const BOARD_SIZE = 9;
-
-// // function createInitialState() {
-// //   return {
-// //     p1: { row: 0, col: 4 }, // top
-// //     p2: { row: 8, col: 4 }, // bottom
-// //     turn: "p1",
-// //   };
-// // }
-
-// // export default function QuoridorBoard() {
-// //   const [state, setState] = useState(createInitialState());
-
-// //   const isAdjacent = (r1, c1, r2, c2) => {
-// //     const dr = Math.abs(r1 - r2);
-// //     const dc = Math.abs(c1 - c2);
-// //     return dr + dc === 1;
-// //   };
-
-// //   const movePawn = (row, col) => {
-// //     const { p1, p2, turn } = state;
-
-// //     const current = turn === "p1" ? p1 : p2;
-// //     const opponent = turn === "p1" ? p2 : p1;
-
-// //     // Only allow adjacent move
-// //     if (!isAdjacent(current.row, current.col, row, col)) return;
-
-// //     // Can't move onto opponent
-// //     if (row === opponent.row && col === opponent.col) return;
-
-// //     const newState = { ...state };
-// //     newState[turn] = { row, col };
-// //     newState.turn = turn === "p1" ? "p2" : "p1";
-
-// //     setState(newState);
-// //   };
-
-// //   const getCellContent = (row, col) => {
-// //     if (state.p1.row === row && state.p1.col === col)
-// //       return <div className="w-6 h-6 rounded-full bg-blue-500" />;
-// //     if (state.p2.row === row && state.p2.col === col)
-// //       return <div className="w-6 h-6 rounded-full bg-red-500" />;
-// //     return null;
-// //   };
-
-// //   const checkWinner = () => {
-// //     if (state.p1.row === BOARD_SIZE - 1) return "Player 1 Wins!";
-// //     if (state.p2.row === 0) return "Player 2 Wins!";
-// //     return null;
-// //   };
-
-// //   const winner = checkWinner();
-
-// //   return (
-// //     <div className="flex flex-col items-center gap-4 p-6">
-// //       <h1 className="text-2xl font-bold">Quoridor</h1>
-
-// //       {winner && (
-// //         <div className="text-green-600 font-semibold text-lg">{winner}</div>
-// //       )}
-
-// //       <div className="text-sm text-white-600">
-// //         Turn: {state.turn === "p1" ? "Player 1 (Blue)" : "Player 2 (Red)"}
-// //       </div>
-
-// //       <div className="grid grid-cols-9 gap-1 bg-gray-700 p-2 rounded-xl">
-// //         {Array.from({ length: BOARD_SIZE }).map((_, row) =>
-// //           Array.from({ length: BOARD_SIZE }).map((_, col) => (
-// //             <div
-// //               key={`${row}-${col}`}
-// //               onClick={() => movePawn(row, col)}
-// //               className="w-12 h-12 bg-white flex items-center justify-center cursor-pointer hover:bg-gray-100"
-// //             >
-// //               {getCellContent(row, col)}
-// //             </div>
-// //           ))
-// //         )}
-// //       </div>
-
-// //       {/* <button
-// //         onClick={() => setState(createInitialState())}
-// //         className="px-4 py-2 bg-black text-white rounded-lg"
-// //       >
-// //         Reset Game
-// //       </button> */}
-// //     </div>
-// //   );
-// // }
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate, useBlocker } from "react-router-dom";
+import { useAuthStore } from "../store/useAuthStore";
 
-// ─── Constants & Helpers ─────────────────────────────────────────────────────
+// Grid Size
 const N = 9; 
 
 // Converts row/col to standard Quoridor notation (e.g., e4, f5h, c3v)
@@ -301,7 +12,7 @@ const coordsToNotation = (r, c, type = "") => {
   return `${colStr}${rowStr}${type}`;
 };
 
-// ─── BFS Pathfinding ─────────────────────────────────────────────────────────
+// BFS Pathfinding
 function hasPath(sr, sc, goalRows, hWalls, vWalls) {
   const visited = new Set();
   const queue = [[sr, sc]];
@@ -318,6 +29,132 @@ function hasPath(sr, sc, goalRows, hWalls, vWalls) {
     }
   }
   return false;
+}
+
+// --- AI HELPER: Calculates exact distance to goal ---
+function getShortestPathLength(sr, sc, goalRows, hWalls, vWalls) {
+  const visited = new Set();
+  const queue = [[sr, sc, 0]]; // [row, col, distance]
+  visited.add(`${sr},${sc}`);
+
+  while (queue.length) {
+    const [r, c, dist] = queue.shift();
+    if (goalRows.includes(r)) return dist;
+
+    for (const [nr, nc] of neighbors(r, c, hWalls, vWalls)) {
+      const key = `${nr},${nc}`;
+      if (!visited.has(key)) {
+        visited.add(key);
+        queue.push([nr, nc, dist + 1]);
+      }
+    }
+  }
+  return Infinity; // Should never happen unless completely trapped
+}
+
+// --- AI HELPER: Finds the most annoying wall to place ---
+function getBestBlockingWall(state) {
+  let bestWall = null;
+  // How far are both players right now?
+  let maxPlayerDist = getShortestPathLength(state.p1.row, state.p1.col, [0], state.hWalls, state.vWalls);
+  const currentBotDist = getShortestPathLength(state.p2.row, state.p2.col, [N - 1], state.hWalls, state.vWalls);
+
+  const types = ['h', 'v'];
+  
+  // Brute-force check all 128 possible wall placements
+  for (const type of types) {
+    for (let r = 0; r < N - 1; r++) {
+      for (let c = 0; c < N - 1; c++) {
+        
+        // 1. Is this wall legally allowed?
+        const canPlace = type === 'h' 
+          ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2) 
+          : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
+        
+        if (canPlace) {
+          // 2. Simulate the board with this new wall
+          const tempHWalls = new Set(state.hWalls);
+          const tempVWalls = new Set(state.vWalls);
+          if (type === 'h') tempHWalls.add(`${r},${c}`);
+          else tempVWalls.add(`${r},${c}`);
+
+          // 3. How does this wall affect the race?
+          const newPlayerDist = getShortestPathLength(state.p1.row, state.p1.col, [0], tempHWalls, tempVWalls);
+          const newBotDist = getShortestPathLength(state.p2.row, state.p2.col, [N - 1], tempHWalls, tempVWalls);
+
+          // 4. Does it hurt the player MORE than it hurts the bot?
+          if (newPlayerDist > maxPlayerDist && (newPlayerDist - newBotDist) > (maxPlayerDist - currentBotDist)) {
+            maxPlayerDist = newPlayerDist;
+            bestWall = { type, r, c };
+          }
+        }
+      }
+    }
+  }
+  return bestWall;
+}
+
+// --- AI HELPER: LEVEL 3 MASTERMIND EVALUATOR ---
+function getBestLevel3Move(state) {
+  const cur = state.p2;
+  const opp = state.p1;
+  let bestMove = null;
+  let bestScore = -Infinity; // We want to MAXIMIZE our advantage
+
+  const currentPlayerDist = getShortestPathLength(opp.row, opp.col, [0], state.hWalls, state.vWalls);
+
+  // 1. Evaluate Pawn Moves
+  const validMoves = getValidMoves(cur, opp, state.hWalls, state.vWalls);
+  for (const moveStr of validMoves) {
+    const [r, c] = moveStr.split(',').map(Number);
+    const newBotDist = getShortestPathLength(r, c, [N - 1], state.hWalls, state.vWalls);
+    
+    // Score = (Player's Distance) - (Bot's Distance). 
+    // We add 0.5 to slightly bias the bot towards moving instead of wasting walls if scores are tied.
+    const score = currentPlayerDist - newBotDist + 0.5; 
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = { action: 'move', r, c };
+    }
+  }
+
+  // 2. Evaluate Walls (Only test walls physically near the player to prevent browser lag!)
+  if (cur.walls > 0) {
+    const minR = Math.max(0, opp.row - 2);
+    const maxR = Math.min(N - 2, opp.row + 2);
+    const minC = Math.max(0, opp.col - 2);
+    const maxC = Math.min(N - 2, opp.col + 2);
+
+    const types = ['h', 'v'];
+    for (const type of types) {
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          const canPlace = type === 'h' 
+            ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2) 
+            : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
+          
+          if (canPlace) {
+            const tempHWalls = new Set(state.hWalls);
+            const tempVWalls = new Set(state.vWalls);
+            if (type === 'h') tempHWalls.add(`${r},${c}`);
+            else tempVWalls.add(`${r},${c}`);
+
+            const newPlayerDist = getShortestPathLength(opp.row, opp.col, [0], tempHWalls, tempVWalls);
+            const newBotDist = getShortestPathLength(cur.row, cur.col, [N - 1], tempHWalls, tempVWalls);
+
+            const score = newPlayerDist - newBotDist;
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestMove = { action: 'wall', type, r, c };
+            }
+          }
+        }
+      }
+    }
+  }
+  return bestMove;
 }
 
 function neighbors(r, c, hWalls, vWalls) {
@@ -339,7 +176,7 @@ function isVWallBlocking(r, c, dir, vWalls) {
   else return vWalls.has(`${r},${c - 1}`) || vWalls.has(`${r - 1},${c - 1}`);
 }
 
-// ─── Wall Validity ────────────────────────────────────────────────────────────
+// Wall Validity
 function canPlaceHWall(r, c, hWalls, vWalls, p1, p2) {
   if (r < 0 || r > N - 2 || c < 0 || c > N - 2) return false;
   if (hWalls.has(`${r},${c}`) || hWalls.has(`${r},${c - 1}`) || hWalls.has(`${r},${c + 1}`)) return false; 
@@ -356,7 +193,7 @@ function canPlaceVWall(r, c, hWalls, vWalls, p1, p2) {
   return hasPath(p1.row, p1.col, [0], hWalls, nv) && hasPath(p2.row, p2.col, [N - 1], hWalls, nv);
 }
 
-// ─── Move Validation ─────────────────────────────────────────────────────────
+// Move Validation
 function getValidMoves(cur, opp, hWalls, vWalls) {
   const moves = new Set();
   const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
@@ -410,18 +247,39 @@ function initState() {
   };
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-export default function QuoridorBoard() {
-  // Read URL parameters to toggle Timed Mode
+// Helper to format ms into MM:SS
+const formatTime = (ms) => {
+  if (ms === null || ms === undefined) return "--:--";
+  if (ms < 0) ms = 0;
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+//  Main Component
+export default function QuoridorBoard({ socket, roomId, myRole, playerData}) {
+  const login = useAuthStore((state) => state.login);
+  const user = useAuthStore((state) => state.user);
+
+  // Reading URL parameters to toggle Timed Mode
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const isTimedMode = queryParams.get("mode") === "timed";
+  const navigate = useNavigate();
+  const isBotMode = queryParams.get("mode") === "bot";
+  const botLevel = parseInt(queryParams.get("level")) || 2;
 
   const [state, setState] = useState(initState);
   const [mode, setMode] = useState("move"); 
   const [hovered, setHovered] = useState(null); 
   const [selected, setSelected] = useState(false); 
   const [rightTab, setRightTab] = useState("chat");
+
+  // --- TIMER STATES ---
+  const [clocks, setClocks] = useState({ p1: null, p2: null });
+  const [lastSyncTime, setLastSyncTime] = useState(null); 
+  const [isClockRunning, setIsClockRunning] = useState(false);
   
   const draggingRef = useRef(false);
   const chatEndRef = useRef(null);
@@ -432,16 +290,23 @@ export default function QuoridorBoard() {
     { sender: "System", text: "Match started. Good luck!" }
   ]);
 
+  // Modal states
+  const [showResignModal, setShowResignModal] = useState(false);
+
+  // --- AUTO-SCROLL EFFECT ---
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMsgs, rightTab, state.moveHistory]);
+  }, [chatMsgs]);
+
+  const [winReason, setWinReason] = useState(null); // 'normal' | 'forfeit' | 'timeout'
+  const [ratingUpdates, setRatingUpdates] = useState(null);
 
   const cur = state.turn === "p1" ? state.p1 : state.p2;
   const opp = state.turn === "p1" ? state.p2 : state.p1;
   const validMoves = state.winner ? new Set() : getValidMoves(cur, opp, state.hWalls, state.vWalls);
-
-  const executeMove = useCallback((r, c) => {
+  
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  const executeMove = useCallback((r, c, isFromSocket = false) => {
     setState(prev => {
       const notation = coordsToNotation(r, c);
       const ns = {
@@ -456,36 +321,61 @@ export default function QuoridorBoard() {
     });
     setSelected(false);
     draggingRef.current = false;
-  }, []);
+    const isWin = (myRole === "p1" && r === 0) || (myRole === "p2" && r === N - 1);
 
-  const handleCellClick = useCallback((r, c) => {
-    if (state.winner || mode !== "move") return;
-    const isCurrentPawn = r === cur.row && c === cur.col;
-    if (isCurrentPawn) { setSelected(s => !s); return; }
-    if (selected && validMoves.has(`${r},${c}`)) {
-      executeMove(r, c);
+    if (!isFromSocket && socket && !isBotMode) {
+      socket.emit("game_action", {
+        roomId,
+        action: { type: "PAWN_MOVE", r, c, isWin: isWin },
+      });
+      // Tell local ticker to start counting opponent's time
+      setLastSyncTime(Date.now());
     }
-  }, [state, mode, cur, selected, validMoves, executeMove]);
+  }, [socket, roomId, myRole]);
 
-  const handleDragStart = (e) => {
-    if (state.winner || mode !== "move") { e.preventDefault(); return; }
-    setSelected(true);
-    draggingRef.current = true;
+  // const handleResign = () => {
+  //   // Add a quick confirmation so they don't accidentally click it during a tense match!
+  //   const confirmResign = window.confirm("Are you sure you want to resign?");
+  //   if (!confirmResign) return;
+
+  //   if (isBotMode) {
+  //     // If playing the bot, handle it locally instantly
+  //     const winnerRole = myRole === "p1" ? "p2" : "p1";
+  //     setState((prev) => ({ ...prev, winner: winnerRole }));
+  //     setWinReason("forfeit");
+  //     setIsClockRunning(false);
+  //   } else if (socket && roomId) {
+  //     // If multiplayer, tell the server we surrender
+  //     socket.emit("resign", { roomId });
+  //   }
+  // };
+
+  // This is the actual logic that runs when they click "Yes, Resign" inside your custom modal
+  const confirmResign = () => {
+    setShowResignModal(false); // Close the custom modal first
+
+    if (isBotMode) {
+      // If playing the bot, handle it locally instantly
+      const winnerRole = myRole === "p1" ? "p2" : "p1";
+      setState((prev) => ({ ...prev, winner: winnerRole }));
+      setWinReason("forfeit");
+      setIsClockRunning(false);
+    } else if (socket && roomId) {
+      // If multiplayer, tell the server we surrender
+      socket.emit("resign", { roomId });
+    }
   };
 
-  const handleDrop = (r, c) => {
-    if (draggingRef.current && validMoves.has(`${r},${c}`)) {
-      executeMove(r, c);
-    }
-    draggingRef.current = false;
-  };
 
-  const handleWallClick = useCallback((type, r, c) => {
+  const handleWallClick = useCallback((type, r, c, isFromSocket = false) => {
     if (state.winner || cur.walls <= 0) return;
-    const ok = type === "h"
-      ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2)
-      : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
-    if (!ok) return;
+
+    if (!isFromSocket) {
+      const ok = type === "h"
+        ? canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2)
+        : canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
+      if (!ok) return;
+    }
 
     setState(prev => {
       const notation = coordsToNotation(r, c, type);
@@ -500,12 +390,247 @@ export default function QuoridorBoard() {
         moveHistory: [...prev.moveHistory, notation]
       };
     });
-  }, [state, cur]);
+
+    if (!isFromSocket && socket) {
+      socket.emit("game_action", {
+        roomId,
+        action: { type: "WALL_PLACE", wallType: type, r, c, isWin: false }
+      });
+      // Tell local ticker to start counting opponent's time
+      setLastSyncTime(Date.now());
+    }
+  }, [state, cur, socket, roomId]);
+
+  // Checking if the current game turn matches the local player's role
+  const isMyTurn = state.turn === myRole;
+
+  // Ref to track the latest winner status
+  const winnerRef = useRef(state.winner);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !winnerRef.current && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // Keeping the ref in sync with state
+  useEffect(() => {
+    winnerRef.current = state.winner;
+    if (state.winner) setIsClockRunning(false); // Stop clocks if game over
+  }, [state.winner]);
+
+  useEffect(() => {
+    return () => {
+      if (socket && !winnerRef.current) {
+        socket.emit("leave_room", { roomId });
+      }
+    };
+  }, [socket, roomId]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (!winnerRef.current) {
+        e.preventDefault();
+        e.returnValue = ''; 
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // Telling the server who is playing in this room
+  useEffect(() => {
+    if (socket && roomId && playerData?.[myRole]?.id) {
+      socket.emit("join_game", {
+        roomId,
+        uid: playerData[myRole].id,
+        game_type: isTimedMode ? "rapid" : "untimed", // Send correct type to server
+        created_at: new Date()
+      });
+    }
+  }, [socket, roomId, playerData, myRole, isTimedMode]);
+
+  // --- THE SMOOTH VISUAL TICKER ---
+  useEffect(() => {
+    if (!isTimedMode || !isClockRunning || state.winner || !lastSyncTime) return;
+
+    const intervalId = setInterval(() => {
+      setClocks(prev => {
+        const timeElapsed = Date.now() - lastSyncTime;
+        return {
+          ...prev,
+          [state.turn]: Math.max(0, prev[state.turn] - timeElapsed)
+        };
+      });
+      setLastSyncTime(Date.now());
+    }, 100);
+
+    return () => clearInterval(intervalId);
+  }, [isTimedMode, isClockRunning, state.winner, state.turn, lastSyncTime]);
+
+  // --- SOCKET LISTENERS (Combined & Updated for Timers) ---
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleGameOver = (data) => {
+      const winnerRole = data.winnerUid === playerData?.p1?.id ? "p1" : "p2";
+      setState(prev => ({ ...prev, winner: winnerRole }));
+      setWinReason(data.reason);
+      setRatingUpdates(data.ratings);
+      setIsClockRunning(false); 
+      if(user && data.ratings && data.ratings[user.id])
+        {
+          login({
+            ...user, 
+            rating: data.ratings[user.id].newRating });
+        } 
+    };
+
+    const handleOpponentLeft = () => {
+      if (winnerRef.current) return;
+      setState(prev => ({ ...prev, winner: myRole }));
+      setWinReason("forfeit");
+      setIsClockRunning(false); 
+    };
+
+    // 1. Initial Clock Sync
+    const handleSyncClocks = (data) => {
+      setClocks({ p1: data.p1Time, p2: data.p2Time });
+      setLastSyncTime(Date.now());
+      setIsClockRunning(true);
+    };
+
+    // 2. Opponent Move & Clock Correction
+    const handleOpponentAction = (data) => {
+      const { action, p1Time, p2Time } = data;
+      
+      if (p1Time !== undefined) {
+        setClocks({ p1: p1Time, p2: p2Time });
+        setLastSyncTime(Date.now());
+      }
+
+      if (action.type === "PAWN_MOVE") executeMove(action.r, action.c, true);
+      else if (action.type === "WALL_PLACE") handleWallClick(action.wallType, action.r, action.c, true);
+    };
+
+    socket.on("game_over", handleGameOver);
+    socket.on("opponent_left", handleOpponentLeft);
+    socket.on("sync_clocks", handleSyncClocks);     
+    socket.on("sync_action", handleOpponentAction); 
+
+    return () => {
+      socket.off("game_over", handleGameOver);
+      socket.off("opponent_left", handleOpponentLeft);
+      socket.off("sync_clocks", handleSyncClocks);
+      socket.off("sync_action", handleOpponentAction);
+    };
+  }, [socket, playerData, user, login, myRole]); // Note: executeMove and handleWallClick removed from dependencies to avoid loop
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMsgs, rightTab, state.moveHistory]);
+
+
+
+
+  const handleCellClick = useCallback((r, c) => {
+    if (!isMyTurn || state.winner || mode !== "move") return;
+    if (state.winner || mode !== "move") return;
+    const isCurrentPawn = r === cur.row && c === cur.col;
+    if (isCurrentPawn) { setSelected(s => !s); return; }
+    if (selected && validMoves.has(`${r},${c}`)) {
+      executeMove(r, c);
+    }
+  }, [state, mode, cur, selected, validMoves, executeMove, isMyTurn]);
+
+  const handleDragStart = (e) => {
+    if (!isMyTurn || state.winner || mode !== "move") { e.preventDefault(); return; }
+    if (state.winner || mode !== "move") { e.preventDefault(); return; }
+    setSelected(true);
+    draggingRef.current = true;
+  };
+
+  const handleDrop = (r, c) => {
+    if (!isMyTurn) return;
+    if (draggingRef.current && validMoves.has(`${r},${c}`)) {
+      executeMove(r, c);
+    }
+    draggingRef.current = false;
+  };
+
 
   const isWallPreviewBlocked = useCallback((type, r, c) => {
     if (type === "h") return !canPlaceHWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
     return !canPlaceVWall(r, c, state.hWalls, state.vWalls, state.p1, state.p2);
   }, [state]);
+
+
+  // ==========================================
+  // --- MASTER AI: LEVEL 1 & LEVEL 2 ---
+  // ==========================================
+  useEffect(() => {
+    if (!isBotMode || state.winner || state.turn !== "p2") return;
+
+    const thinkAndPlay = () => {
+      const cur = state.p2; 
+      const opp = state.p1; 
+
+
+      if (botLevel === 3) {
+        const bestMove = getBestLevel3Move(state);
+        if (bestMove) {
+          if (bestMove.action === 'wall') {
+            handleWallClick(bestMove.type, bestMove.r, bestMove.c, true);
+          } else {
+            executeMove(bestMove.r, bestMove.c, true);
+          }
+          return;
+        }
+      }
+
+      // ---------------------------------------------------------
+      // LEVEL 2 LOGIC: The Spiteful Blocker
+      // ---------------------------------------------------------
+      if (botLevel === 2) {
+        const botDist = getShortestPathLength(cur.row, cur.col, [N - 1], state.hWalls, state.vWalls);
+        const playerDist = getShortestPathLength(opp.row, opp.col, [0], state.hWalls, state.vWalls);
+
+        // PANIC MODE: Block the player!
+        if (playerDist <= botDist && cur.walls > 0) {
+          const bestWall = getBestBlockingWall(state);
+          if (bestWall) {
+            handleWallClick(bestWall.type, bestWall.r, bestWall.c, true); 
+            return; 
+          }
+        }
+      }
+
+      // ---------------------------------------------------------
+      // LEVEL 1 (and Level 2 Fallback) LOGIC: The Runner
+      // ---------------------------------------------------------
+      const validMoves = getValidMoves(cur, opp, state.hWalls, state.vWalls);
+      let bestMove = null;
+      let shortestDist = Infinity;
+
+      for (const moveStr of validMoves) {
+        const [r, c] = moveStr.split(',').map(Number);
+        const dist = getShortestPathLength(r, c, [N - 1], state.hWalls, state.vWalls);
+        if (dist < shortestDist) {
+          shortestDist = dist;
+          bestMove = { r, c };
+        }
+      }
+
+      if (bestMove) {
+        executeMove(bestMove.r, bestMove.c, true);
+      }
+    };
+
+    const timer = setTimeout(thinkAndPlay, botLevel === 1 ? 500 : 800);
+    return () => clearTimeout(timer);
+
+  }, [isBotMode, botLevel, state.turn, state.winner, state.hWalls, state.vWalls, state.p1, state.p2, executeMove, handleWallClick]);
+
 
   const isP1Turn = state.turn === "p1";
   const CELL = 46; 
@@ -515,63 +640,92 @@ export default function QuoridorBoard() {
   const vWallAt = (r, c) => state.vWalls.has(`${r},${c}`);
   const isHoveredWall = (type, r, c) => hovered && hovered.type === type && hovered.r === r && hovered.c === c;
 
+  // Chat Functionality
   const handleChatSubmit = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    setChatMsgs([...chatMsgs, { sender: "You", text: chatInput }]);
+
+    setChatMsgs(prev => [...prev, { sender: "You", text: chatInput }]);
+    if (socket) {
+      socket.emit("chat_message", { roomId, message: chatInput });
+    }
     setChatInput("");
   };
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("sync_chat", (msgText) => {
+      setChatMsgs(prev => [...prev, { sender: "Opponent", text: msgText }]);
+    });
+    return () => socket.off("sync_chat");
+  }, [socket]);
 
   const movePairs = [];
   for (let i = 0; i < state.moveHistory.length; i += 2) {
     movePairs.push({ w: state.moveHistory[i], b: state.moveHistory[i + 1] });
   }
 
-  // Changed to a standard helper function (instead of a React Component) to prevent unmount bugs
   const renderPlayerTag = (playerKey) => {
     const isP1 = playerKey === "p1";
     const isActive = state.turn === playerKey && !state.winner;
     const pData = state[playerKey];
-    
+
+    const name = playerData?.[playerKey]?.name || (isP1 ? "Player 1" : "Player 2");
+    const rating = playerData?.[playerKey]?.rating || "1400";
+    const isMe = playerKey === myRole;
+
+    const msLeft = clocks[playerKey];
+    const isLowTime = isTimedMode && isActive && msLeft !== null && msLeft <= 60000;
+
     return (
       <div className={`flex items-center justify-between w-full max-w-[480px] bg-[#1a140f] p-3 rounded-xl border ${isActive ? "border-[#d4700a] shadow-[0_0_15px_rgba(212,112,10,0.15)]" : "border-[#3d2b1f] opacity-80"} transition-all duration-300`}>
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-lg border-2 ${isActive ? "border-[#d4700a]" : "border-[#3d2b1f]"} overflow-hidden bg-[#2a2118] flex items-center justify-center text-xl`}>
-             {isP1 ? "👱‍♂️" : "🤖"}
+            {isP1 ? "👱‍♂️" : "👦"}
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-[#f0d9b5]">{isP1 ? "dev_69420" : "Bot_Master99"}</span>
-              <span className="text-xs text-[#a08b74]">(1200)</span>
+              <span className="font-bold text-[#f0d9b5]">
+                {name} {isMe && <span className="text-[10px] text-[#d4700a] ml-1">(YOU)</span>}
+              </span>
+              <span className="text-xs text-[#a08b74]">({rating})</span>
             </div>
+
             <div className="flex gap-1 mt-1">
               {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className={`w-2 h-2 rounded-[1px] transition-colors ${i < pData.walls ? "bg-[#d4700a]" : "bg-[#3d2b1f]"}`} />
+                <div
+                  key={i}
+                  className={`w-2 h-2 rounded-[1px] transition-colors ${i < pData.walls ? "bg-[#d4700a]" : "bg-[#3d2b1f]"}`}
+                />
               ))}
             </div>
           </div>
         </div>
-        {/* Dynamic checking of the mode */}
+
         {isTimedMode && (
-          <div className={`font-mono text-xl font-bold bg-[#2a2118] px-3 py-1 rounded-lg border ${isActive ? "text-white border-[#3d2b1f]" : "text-[#a08b74] border-transparent"}`}>
-            10:00
+          <div className={`font-mono text-xl font-bold bg-[#2a2118] px-3 py-1 rounded-lg border transition-colors ${
+            isActive && isLowTime ? "text-red-500 border-red-500/50 animate-pulse" : 
+            isActive ? "text-white border-[#3d2b1f]" : "text-[#a08b74] border-transparent"
+          }`}>
+            {formatTime(msLeft)}
           </div>
         )}
       </div>
     );
   };
 
- return (
-    // 👉 1. The Magic Wrapper: Replaced <> with a flex container spanning full height
+  const winnerName = state.winner
+    ? (playerData?.[state.winner]?.name || (state.winner === "p1" ? "Player 1" : "Player 2"))
+    : "";
+
+  return (
     <div className="flex w-full absolute inset-0">
-      
+  
       {/* --- COLUMN 1: CENTER BOARD AREA --- */}
       <main className="flex-1 flex flex-col items-center justify-center p-2 relative overflow-y-auto min-w-0">
         
-        {/* We can remove the background grid here since we added it to Layout.jsx! */}
-
         <div className="w-full flex flex-col items-center gap-3 relative z-10 my-auto">
-          {renderPlayerTag("p2")}
+         {renderPlayerTag(myRole === "p1" ? "p2" : "p1")}
 
           {/* Mode Toolbar */}
           <div className="w-full max-w-[480px] flex justify-end">
@@ -603,14 +757,14 @@ export default function QuoridorBoard() {
 
           {/* THE BOARD */}
           <div 
-            className="relative bg-gradient-to-br from-[#4a3623] to-[#3a2210] rounded-xl p-3 shadow-[0_0_0_1px_rgba(61,43,31,0.5),0_0_0_4px_#1a140f,0_15px_40px_rgba(0,0,0,0.6)]"
+           className={`relative bg-gradient-to-br from-[#4a3623] to-[#3a2210] rounded-xl p-3 shadow-[0_0_0_1px_rgba(61,43,31,0.5),0_0_0_4px_#1a140f,0_15px_40px_rgba(0,0,0,0.6)] ${myRole==="p2" ? "rotate-180" : ""}`}
             style={{ cursor: mode === "move" ? "default" : "crosshair", userSelect: "none" }}
             onMouseLeave={() => setHovered(null)}
           >
             {/* Column coords */}
             <div style={{ display: "flex", paddingLeft: `${GAP / 2 + 2}px`, marginBottom: "2px" }}>
               {Array.from({ length: N }).map((_, c) => (
-                <div key={c} className="text-[#a08b74]/60 text-[9px] font-mono text-center tracking-widest uppercase" style={{ width: CELL, marginRight: c < N - 1 ? GAP : 0 }}>
+                <div key={c} className={`text-[#a08b74]/60 text-[9px] font-mono text-center tracking-widest uppercase ${myRole==="p2" ? "rotate-180" : ""}`} style={{ width: CELL, marginRight: c < N - 1 ? GAP : 0 }}>
                   {String.fromCharCode(97 + c)}
                 </div>
               ))}
@@ -621,7 +775,7 @@ export default function QuoridorBoard() {
               <div key={row}>
                 {/* Cell row */}
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div className="w-3 text-[#a08b74]/60 text-[9px] font-mono text-right mr-1.5 flex-shrink-0">{N - row}</div>
+                  <div className={`w-3 text-[#a08b74]/60 text-[9px] font-mono text-right mr-1.5 flex-shrink-0 ${myRole==="p2" ? "rotate-180" : ""}`}>{N - row}</div>
 
                   {Array.from({ length: N }).map((_, col) => {
                     const isP1Here = state.p1.row === row && state.p1.col === col;
@@ -633,7 +787,6 @@ export default function QuoridorBoard() {
 
                     return (
                       <div key={col} style={{ display: "flex", alignItems: "center" }}>
-                        {/* Cell (Drop Target) */}
                         <div
                           onClick={() => handleCellClick(row, col)}
                           onMouseEnter={() => mode === "move" && setHovered({ type: "cell", r: row, c: col })}
@@ -731,29 +884,60 @@ export default function QuoridorBoard() {
               </div>
             ))}
 
-            {/* Winner Overlay */}
-            {state.winner && (
-              <div className="absolute inset-0 z-20 bg-[#1a140f]/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center animate-fade-in">
-                <div className="text-3xl font-extrabold text-[#d4700a] tracking-widest drop-shadow-[0_0_20px_rgba(212,112,10,0.6)] mb-2">
-                  🏆 {state.winner === "p1" ? "Player 1" : "Player 2"} Wins!
-                </div>
-                <button
-                  onClick={() => { setState(initState()); setMode("move"); setSelected(false); setChatMsgs([{ sender: "System", text: "Rematch started. Good luck!" }]); }}
-                  className="mt-4 px-8 py-3 bg-[#d4700a] hover:bg-[#f08a1c] text-white font-bold rounded-xl shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all"
-                >
-                  Rematch
-                </button>
-              </div>
-            )}
+           {/* Winner Overlay */}
+           {state.winner && (
+             <div className={`absolute inset-0 z-20 bg-[#1a140f]/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center animate-fade-in ${myRole === "p2" ? "rotate-180" : ""}`}>
+               <div className="text-3xl font-extrabold text-[#d4700a] tracking-widest drop-shadow-[0_0_20px_rgba(212,112,10,0.6)] mb-6 text-center px-6">
+                 {winReason === "forfeit" ? (
+                   <>
+                     <div className="text-red-500 text-sm mb-2 uppercase tracking-tighter">Opponent Left the Match</div>
+                     🏆 YOU WIN BY FORFEIT!
+                   </>
+                 ) : winReason === "timeout" ? (
+                   <>
+                     <div className="text-red-500 text-sm mb-2 uppercase tracking-tighter">Opponent Ran Out Of Time</div>
+                     ⏱️ YOU WIN ON TIME!
+                   </>
+                 ) : (
+                     <>🏆 {winnerName} Wins!</>
+                 )}
+               </div>
+
+               {/*Display the Elo Rating changes */}
+               {ratingUpdates && playerData?.[myRole]?.id && ratingUpdates[playerData[myRole].id] &&(
+                 <div className="mb-8 flex flex-col items-center bg-[#2a2118] border border-[#3d2b1f] rounded-xl p-4 shadow-lg">
+                   <span className="text-[#a08b74] text-sm uppercase tracking-wider mb-1">New Rating</span>
+                   <div className="flex items-center gap-3">
+                     <span className="text-2xl font-bold text-[#f0d9b5]">
+                       {ratingUpdates[playerData[myRole].id].newRating}
+                     </span>
+                     <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${ratingUpdates[playerData[myRole].id].diff >= 0
+                       ? "bg-green-500/20 text-green-400"
+                       : "bg-red-500/20 text-red-400"
+                       }`}>
+                       {ratingUpdates[playerData[myRole].id].diff >= 0 ? "+" : ""}
+                       {ratingUpdates[playerData[myRole].id].diff}
+                     </span>
+                   </div>
+                 </div>
+               )}
+
+               <button
+                 onClick={() => navigate("/")}
+                 className="px-10 py-4 bg-[#d4700a] hover:bg-[#f08a1c] text-white font-bold rounded-xl shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none transition-all"
+               >
+                 Back to home
+               </button>
+             </div>
+           )}
           </div>
 
-          {renderPlayerTag("p1")}
+          {renderPlayerTag(myRole)}
 
         </div>
       </main>
 
       {/* --- COLUMN 2: RIGHT CHAT/INFO PANEL --- */}
-      {/* 👉 2. Added h-full here so the sidebar stretches correctly */}
       <aside className="w-80 xl:w-96 bg-[#1a140f] border-l border-[#3d2b1f] hidden lg:flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] shrink-0 h-full">
         
         {/* Tabs */}
@@ -825,7 +1009,6 @@ export default function QuoridorBoard() {
                   </tbody>
                 </table>
               )}
-              {/* 👉 3. Moved this outside the table to fix a hidden React console warning */}
               <div ref={movesEndRef} />
             </div>
           )}
@@ -849,17 +1032,85 @@ export default function QuoridorBoard() {
           </div>
         )}
 
-        {/* Game Controls */}
+        {/* Game Controls
         <div className="p-4 bg-[#241c15] border-t border-[#3d2b1f] flex gap-2">
-          <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
+          <button 
+            onClick={handleResign}
+            className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
             🏳️ Resign
           </button>
-          <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
+          {/* <button className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] hover:text-red-400 text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
             🤝 Draw
+          </button> }
+        </div> */}
+
+        {/* Game Controls */}
+        <div className="p-4 bg-[#241c15] border-t border-[#3d2b1f] flex gap-2">
+          <button 
+            onClick={() => setShowResignModal(true)} // 👈 Changed this line!
+            className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] hover:text-red-400 text-[#a08b74] py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            🏳️ Resign
           </button>
         </div>
 
       </aside>
+
+      {/* --- CUSTOM RESIGN MODAL --- */}
+      {showResignModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="bg-[#1a140f] border border-[#3d2b1f] rounded-2xl p-6 md:p-8 shadow-2xl max-w-sm w-full text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-5xl mb-4">🏳️</div>
+            <h2 className="text-2xl font-extrabold text-white mb-2 tracking-tight">Surrender?</h2>
+            <p className="text-[#a08b74] mb-8 text-sm md:text-base">
+              Are you sure you want to resign this match? This will count as a loss and affect your Elo rating.
+            </p>
+            
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowResignModal(false)}
+                className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#a08b74] hover:text-white py-3 rounded-xl font-bold transition-colors border border-[#3d2b1f]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmResign}
+                className="flex-1 bg-red-900/20 hover:bg-red-900/50 text-red-500 hover:text-red-400 border border-red-900/50 hover:border-red-500/50 py-3 rounded-xl font-bold transition-all"
+              >
+                Yes, Resign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+     {/* --- LEAVE CONFIRMATION MODAL --- */}
+     {blocker.state === "blocked" && (
+       <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+         <div className="bg-[#1a140f] border border-[#3d2b1f] p-6 rounded-xl max-w-sm w-full shadow-2xl animate-fade-in">
+           <h3 className="text-xl font-bold text-[#d4700a] mb-2 flex items-center gap-2">
+             ⚠️ Leave Game?
+           </h3>
+           <p className="text-[#a08b74] mb-6 text-sm">
+             Are you sure you want to navigate away? This will immediately forfeit the match and your opponent will win.
+           </p>
+           <div className="flex gap-3 justify-end">
+             <button
+               onClick={() => blocker.reset()}
+               className="px-4 py-2 bg-[#2a2118] hover:bg-[#3d2b1f] text-[#f0d9b5] font-bold rounded-lg transition-colors"
+             >
+               No, stay
+             </button>
+             <button
+               onClick={() => blocker.proceed()}
+               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-[0_3px_0_#991b1b] active:translate-y-1 active:shadow-none transition-all"
+             >
+               Yes, forfeit
+             </button>
+           </div>
+         </div>
+       </div>
+     )}
     </div>
   );
 }

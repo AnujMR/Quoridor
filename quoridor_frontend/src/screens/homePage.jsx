@@ -1,27 +1,28 @@
 // src/screens/HomePage.jsx
-import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { auth } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useAuthStore } from '../store/useAuthStore';
+import { useEffect } from 'react';
+import { getUserById } from '../api';
 
 export default function HomePage() {
-  const [user, setUser] = useState(null);
+  const currentUser = useAuthStore((state) => state.user);
+  const login = useAuthStore((state) => state.login);
 
-  // Fetch the logged-in user from Firebase
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
+    const refreshUserData = async () => {
+      if (currentUser?.firebase_uid) {
+        const res = await getUserById(currentUser.firebase_uid);
+        login(res.data); // Silent update in the background
+      }
+    };
+    refreshUserData();
+  }, [currentUser?.firebase_uid, login ]);
 
   // Fallbacks just in case the user hasn't set up a display name or photo yet
-  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Challenger';
-  const photoURL = user?.photoURL || '/default-avatar.png';
-
+  const displayName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Challenger';
+  const photoURL = currentUser?.profile || '/default_profile.jpg';
+  
   return (
-    // Note: No more full-screen wrapper or sidebar here! 
-    // Layout.jsx handles that for us. We just return the <main> content.
     <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
       
       {/* Subtle background grid pattern to mimic the board */}
@@ -35,12 +36,12 @@ export default function HomePage() {
         <header className="flex justify-between items-center bg-[#1a140f]/80 backdrop-blur-md p-4 rounded-2xl border border-[#3d2b1f]">
           <div>
             <p className="text-[#a08b74] text-sm font-semibold tracking-wide uppercase">Welcome back to the maze</p>
-            <h1 className="text-2xl font-extrabold">{displayName}</h1>
+            <h1 className="text-2xl font-extrabold text-white">{displayName}</h1>
           </div>
 
           <Link to="/profile" className="flex items-center gap-4 hover:bg-[#2a2118] p-2 pr-4 rounded-xl transition-all border border-transparent hover:border-[#3d2b1f]">
             <div className="text-right hidden sm:block">
-              <p className="font-bold text-sm">Rating: 1200</p>
+              <p className="font-bold text-sm text-white">Rating: {currentUser?.rating || 1400}</p>
               <p className="text-xs text-[#d4700a] font-semibold">View Profile ›</p>
             </div>
             <div className="w-12 h-12 bg-[#3d2b1f] rounded-lg border-2 border-[#d4700a] overflow-hidden shadow-[0_0_10px_rgba(212,112,10,0.2)]">
@@ -71,46 +72,109 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Side Card: Bot Training
+          <div className="col-span-1 bg-[#1a140f] border border-[#3d2b1f] rounded-3xl p-6 flex flex-col shadow-xl hover:border-[#a08b74] transition-colors">
+            <div className="bg-[#2a2118] w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 border border-[#3d2b1f]">🤖</div>
+            <h3 className="text-xl font-bold mb-2 text-white">Bot Training</h3>
+            <p className="text-[#a08b74] text-sm mb-6 flex-1">Practice your pathfinding against our advanced Quoridor AI.</p>
+            <Link to="/board?mode=bot" className="w-full bg-[#2a2118] hover:bg-[#3d2b1f] border border-[#3d2b1f] text-center py-3 rounded-xl font-bold text-white transition-colors">
+              Challenge Bot
+            </Link>
+          </div> */}
+          
+          {/* Side Card: Bot Training
+          {/* <div className="col-span-1 bg-[#1a140f] border border-[#3d2b1f] rounded-3xl p-6 flex flex-col shadow-xl hover:border-[#a08b74] transition-colors">
+            <div className="bg-[#2a2118] w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 border border-[#3d2b1f]">🤖</div>
+            <h3 className="text-xl font-bold mb-2 text-white">Bot Training</h3>
+            <p className="text-[#a08b74] text-sm mb-4 flex-1">Practice your pathfinding against our AI.</p>
+            
+            The New Difficulty Buttons 
+            <div className="flex gap-2 mt-auto">
+              <Link to="/board?mode=bot&level=1" className="flex-1 bg-[#2a2118] hover:bg-[#3d2b1f] border border-[#3d2b1f] text-center py-3 rounded-xl font-bold text-[#a08b74] transition-colors text-sm">
+                Lvl 1: Runner
+              </Link>
+              <Link to="/board?mode=bot&level=2" className="flex-1 bg-[#d4700a] hover:bg-[#f08a1c] border border-[#8a4600] text-center py-3 rounded-xl font-bold text-white transition-colors shadow-[0_4px_0_#8a4600] active:translate-y-1 active:shadow-none text-sm">
+                Lvl 2: Blocker
+              </Link>
+            </div>
+          </div> */}
+
           {/* Side Card: Bot Training */}
           <div className="col-span-1 bg-[#1a140f] border border-[#3d2b1f] rounded-3xl p-6 flex flex-col shadow-xl hover:border-[#a08b74] transition-colors">
             <div className="bg-[#2a2118] w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 border border-[#3d2b1f]">🤖</div>
-            <h3 className="text-xl font-bold mb-2">Bot Training</h3>
-            <p className="text-[#a08b74] text-sm mb-6 flex-1">Practice your pathfinding against our advanced Quoridor AI.</p>
-            <Link to="/board?mode=bot" className="w-full bg-[#2a2118] hover:bg-[#3d2b1f] border border-[#3d2b1f] text-center py-3 rounded-xl font-bold transition-colors">
-              Challenge Bot
-            </Link>
+            <h3 className="text-xl font-bold mb-2 text-white">Bot Training</h3>
+            <p className="text-[#a08b74] text-sm mb-4 flex-1">Practice your pathfinding against our AI.</p>
+            
+            {/* Unified 3-Level Buttons */}
+            <div className="flex gap-2 mt-auto">
+              <Link to="/board?mode=bot&level=1" className="flex-1 bg-[#2a2118] hover:bg-[#d4700a] text-[#a08b74] hover:text-white border border-[#3d2b1f] hover:border-[#d4700a] text-center py-2 rounded-xl font-bold transition-all text-xs sm:text-sm">
+                Lvl 1
+              </Link>
+              <Link to="/board?mode=bot&level=2" className="flex-1 bg-[#2a2118] hover:bg-[#d4700a] text-[#a08b74] hover:text-white border border-[#3d2b1f] hover:border-[#d4700a] text-center py-2 rounded-xl font-bold transition-all text-xs sm:text-sm">
+                Lvl 2
+              </Link>
+              <Link to="/board?mode=bot&level=3" className="flex-1 bg-[#2a2118] hover:bg-[#d4700a] text-[#a08b74] hover:text-white border border-[#3d2b1f] hover:border-[#d4700a] text-center py-2 rounded-xl font-bold transition-all text-xs sm:text-sm shadow-lg">
+                Lvl 3
+              </Link>
+            </div>
           </div>
+
         </div>
 
-        {/* BOTTOM ROW: Secondary Modes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* BOTTOM ROW: Secondary Modes & Community (Changed to grid-cols-3) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Play with a Friend */}
           <Link to="/board?mode=friend" className="bg-[#1a140f] border border-[#3d2b1f] p-6 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-[#201812] transition-colors">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-[#2a2118] rounded-full flex items-center justify-center text-2xl group-hover:rotate-12 transition-transform">🤝</div>
               <div>
-                <h3 className="text-lg font-bold">Play with a Friend</h3>
+                <h3 className="text-lg font-bold text-white">Play with a Friend</h3>
                 <p className="text-[#a08b74] text-sm">Create a private room link</p>
               </div>
             </div>
             <div className="text-[#d4700a] text-2xl">›</div>
           </Link>
 
-          {/* NEW: Timed Match */}
+          {/* Timed Match */}
           <Link to="/board?mode=timed" className="bg-[#1a140f] border border-[#3d2b1f] p-6 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-[#201812] transition-colors relative overflow-hidden">
-            {/* Subtle pulsing background effect for the timed mode */}
             <div className="absolute inset-0 bg-[#d4700a]/5 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse"></div>
-            
             <div className="flex items-center gap-4 relative z-10">
               <div className="w-14 h-14 bg-[#2a2118] rounded-full flex items-center justify-center text-2xl group-hover:-rotate-12 transition-transform border border-[#d4700a]/30">⏱️</div>
               <div>
-                <h3 className="text-lg font-bold text-white">Rapid Match (10 Min)</h3>
-                <p className="text-[#d4700a] font-semibold text-sm">Test your speed under pressure</p>
+                <h3 className="text-lg font-bold text-white">Rapid Match</h3>
+                <p className="text-[#d4700a] font-semibold text-sm">10 Min time control</p>
               </div>
             </div>
             <div className="text-[#d4700a] text-2xl relative z-10">›</div>
           </Link>
+
+          {/* NEW: Global Leaderboard */}
+          <Link to="/leaderboard" className="bg-[#1a140f] border border-[#3d2b1f] p-6 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-[#201812] transition-colors relative overflow-hidden">
+            <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="w-14 h-14 bg-[#2a2118] rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform border border-yellow-500/30">🏆</div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Leaderboard</h3>
+                <p className="text-yellow-500/80 font-semibold text-sm">See top ranked players</p>
+              </div>
+            </div>
+            <div className="text-yellow-500/80 text-2xl relative z-10">›</div>
+          </Link>
+          
+          {/* RULE BOOK */}
+<Link to="/rules" className="bg-[#1a140f] border border-[#3d2b1f] p-6 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-[#201812] transition-colors">
+  <div className="flex items-center gap-4">
+    <div className="w-14 h-14 bg-[#2a2118] rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+      📜
+    </div>
+    <div>
+      <h3 className="text-lg font-bold text-white">Rule Book</h3>
+      <p className="text-[#a08b74] text-sm">Learn how to play</p>
+    </div>
+  </div>
+  <div className="text-[#d4700a] text-2xl">›</div>
+</Link>
 
         </div>
 

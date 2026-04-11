@@ -3,18 +3,21 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom"; 
 import { useAuth } from "../context/authContext";
 import AnimatedBoard from "../components/AnimatedBoard";
+import { useAuthStore } from '../store/useAuthStore';
 
 import { auth, provider } from "../firebase";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
-  signOut // 👉 1. Added signOut here!
+  signOut
 } from "firebase/auth";
+import { createUser, getUserById } from "../api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const login = useAuthStore((state) => state.login);
 
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -25,6 +28,70 @@ export default function LoginPage() {
       navigate("/home");
     }
   }, [currentUser, navigate]);
+
+  /*
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    
+    if (!email || !password)
+      return setError("Please enter both an email and password.");
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // 👉 3. The Verification Gatekeeper
+      if (!userCredential.user.emailVerified) {
+        // Log them right back out if they haven't clicked the link
+        await signOut(auth);
+        return setError("Please verify your email address before logging in. Check your inbox!");
+      }
+
+      const databaseUser = await getUserById(userCredential.user.uid);
+      login({
+        id: databaseUser.id,
+        name: databaseUser.name,
+        email: databaseUser.email,
+        firebase_uid: databaseUser.firebase_uid,
+        rating: databaseUser.rating,
+        profile: databaseUser.profile,
+        created_at: databaseUser.created_at
+      })
+      console.log("Successfully logged in!");
+      navigate("/home");
+    } catch (err) {
+      // Handle incorrect passwords or missing accounts
+      if (err.code === 'auth/invalid-credential') {
+        setError("Incorrect email or password.");
+      } else {
+        setError("Failed to login. Please check your credentials.");
+      }
+    }
+  };
+
+  const handleGoogleSignIn = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      const userCredential = await signInWithPopup(auth, provider);
+      console.log("Successfully logged in with Google!");
+      var res = await createUser({ firebase_uid: userCredential.user.uid, name: userCredential.user.displayName, email: userCredential.user.email, created_at: userCredential.user.metadata.creationTime }); // Save to DB
+      login({
+        id: res.id,
+        name: res.name,
+        email: res.email,
+        firebase_uid: res.firebase_uid,
+        rating: res.rating,
+        profile: res.profile,
+        created_at: res.created_at
+      })
+      navigate("/home");
+    } catch (err) {
+      console.error("Google Auth Error:", err.message);
+      setError("Failed to sign in with Google.");
+    }
+  };
+  */
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -43,10 +110,31 @@ export default function LoginPage() {
         return setError("Please verify your email address before logging in. Check your inbox!");
       }
 
+      // Fetch from your backend (using Firebase UID)
+      const res = await getUserById(userCredential.user.uid);
+      
+      // 👉 Extract data from Axios response
+      const databaseUser = res.data;
+
+      // Handle edge case: What if the user exists in Firebase but not in your Postgres DB?
+      if (!databaseUser || !databaseUser.id) {
+        await signOut(auth);
+        return setError("User profile not found in database. Please contact support.");
+      }
+
+      login({
+        id: databaseUser.id,
+        name: databaseUser.name,
+        email: databaseUser.email,
+        firebase_uid: databaseUser.firebase_uid,
+        rating: databaseUser.rating,
+        profile: databaseUser.profile,
+        created_at: databaseUser.created_at
+      });
+      
       console.log("Successfully logged in!");
       navigate("/home");
     } catch (err) {
-      // Handle incorrect passwords or missing accounts
       if (err.code === 'auth/invalid-credential') {
         setError("Incorrect email or password.");
       } else {
@@ -59,15 +147,37 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     try {
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
       console.log("Successfully logged in with Google!");
+      
+      // Google Login often acts as "Sign Up / Log In", so we upsert
+      const res = await createUser({ 
+        firebase_uid: userCredential.user.uid, 
+        name: userCredential.user.displayName, 
+        email: userCredential.user.email, 
+        created_at: userCredential.user.metadata.creationTime 
+      }); 
+      
+      // 👉 Extract data from Axios response
+      const databaseUser = res.data;
+
+      login({
+        id: databaseUser.id,
+        name: databaseUser.name,
+        email: databaseUser.email,
+        firebase_uid: databaseUser.firebase_uid,
+        rating: databaseUser.rating,
+        profile: databaseUser.profile,
+        created_at: databaseUser.created_at
+      });
+      
       navigate("/home");
     } catch (err) {
       console.error("Google Auth Error:", err.message);
       setError("Failed to sign in with Google.");
     }
   };
-
+  
   return (
     <div className="flex h-screen bg-[#241c15] text-[#f0d9b5] font-sans overflow-hidden">
       <div

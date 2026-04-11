@@ -1,60 +1,81 @@
 // src/App.jsx
-import { Routes, Route } from "react-router-dom";
-import Login from './screens/loginPage';
-import SignUp from './screens/signupPage'; 
-import HomePage from './screens/homePage'; 
-import QuoridorBoard from './screens/quoridorBoard';
-import ProfilePage from './screens/profilePage';
-import ProtectedRoute from './components/ProtectedRoute';
-import { GamePlayScreen } from "./screens/gamePlayScreen";
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react"; // <-- Import useState
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
+import { useAuthStore } from "./store/useAuthStore";
+import { getUserById } from "./api";
 
-// 👉 1. Make sure to import Layout!
-import Layout from './components/Layout'; 
+import Login from './screens/loginPage';
+import SignUp from './screens/signupPage';
+import HomePage from './screens/homePage';
+import ProfilePage from './screens/profilePage';
+import GameLobby from "./screens/gameLobby";
+import ProtectedRoute from './components/ProtectedRoute';
+import LeaderboardPage from "./screens/leaderboard";
+import Layout from './components/Layout';
+import SplashScreen from './screens/splashScreen'; // <-- Import the Splash Screen
+import RuleBook from "./screens/RuleBook";
 
 function App() {
+    const login = useAuthStore((state) => state.login);
+    const logout = useAuthStore((state) => state.logout);
+
+    // NEW: State to control Splash Screen visibility
+    const [showSplash, setShowSplash] = useState(true);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                try {
+                    const res = await getUserById(firebaseUser.uid);
+                    if (res && res.data) {
+                        login(res.data);
+                    }
+                } catch (error) {
+                    console.error("Error fetching user data on auth change:", error);
+                }
+            } else {
+                logout();
+            }
+        });
+        return () => unsubscribe();
+    }, [login, logout]);
+
+    const router = createBrowserRouter([
+        // Auto-redirect to home if logged in, otherwise show login
+        {
+            path: "/",
+            element: useAuthStore.getState().isAuthenticated ? <Navigate to="/home" replace /> : <Login />
+        },
+        { path: "/login", element: <Login /> },
+        { path: "/signup", element: <SignUp /> },
+        {
+            element: <ProtectedRoute><Outlet /></ProtectedRoute>,
+            children: [
+                {
+                    element: <Layout><Outlet /></Layout>,
+                    children: [
+                        { path: "/home", element: <HomePage /> },
+                        { path: "/board", element: <GameLobby /> },
+                        { path: "/profile", element: <ProfilePage /> },
+                        { path: "/profile/:userId", element: <ProfilePage /> },
+                        { path: "/leaderboard", element: <LeaderboardPage /> },
+                        { path: "/rules", element: <RuleBook /> },
+                    ]
+                }
+            ]
+        },
+        { path: "*", element: <Navigate to="/" replace /> }
+    ]);
+
     return (
-        <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            
-            
-            {/* Protected Routes Wrapped in Layout */}
-            <Route 
-                path="/home" 
-                element={
-                    <ProtectedRoute>
-                        {/* 👉 2. Wrap HomePage in Layout */}
-                        <Layout>
-                            <HomePage />
-                        </Layout>
-                    </ProtectedRoute>
-                } 
-            />
-            <Route 
-                path="/board" 
-                element={
-                    <ProtectedRoute>
-                        {/* 👉 3. Wrap Board in Layout */}
-                        <Layout>
-                            <QuoridorBoard />
-                        </Layout>
-                    </ProtectedRoute>
-                } 
-            />
-            <Route 
-                path="/profile" 
-                element={
-                    <ProtectedRoute>
-                        {/* 👉 4. Wrap Profile in Layout */}
-                        <Layout>
-                            <ProfilePage />
-                        </Layout>
-                    </ProtectedRoute>
-                } 
-            />
-        </Routes>
+        <>
+            {/* Show Splash Screen on top of everything. When it finishes, it sets showSplash to false */}
+            {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+
+            <RouterProvider router={router} />
+        </>
     );
 }
 

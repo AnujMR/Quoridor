@@ -15,6 +15,36 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+@keyframes bounce-slow {
+
+  0%,
+  100% {
+    transform: translateY(-5%);
+  }
+
+  50% {
+    transform: translateY(5%);
+  }
+}
+
+@keyframes progress-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 4s ease-in-out infinite;
+}
+
+.animate-progress-bar {
+  animation: progress-bar 3s ease-in-out forwards;
+}
+
 /* a {
   font-weight: 500;
   color: #646cff;

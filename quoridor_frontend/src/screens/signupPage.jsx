@@ -3,8 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import AnimatedBoard from "../components/AnimatedBoard";
+import { useAuthStore } from '../store/useAuthStore';
 
-// 👉 1. Added sendEmailVerification and signOut to imports
 import { auth, provider } from "../firebase";
 import {
   createUserWithEmailAndPassword,
@@ -13,6 +13,7 @@ import {
   sendEmailVerification,
   signOut
 } from "firebase/auth";
+import { createUser } from "../api";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");
@@ -20,21 +21,22 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState(""); // 👉 2. Added success state
+  const login = useAuthStore((state) => state.login);
 
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    // 👉 3. Only redirect if they are logged in AND verified
     if (currentUser && currentUser.emailVerified) {
       navigate("/home");
     }
   }, [currentUser, navigate]);
 
+  /*
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccessMsg(""); // Clear previous success messages
+    setSuccessMsg(""); 
     
     if (!username || !email || !password) {
       return setError("Please fill out all fields.");
@@ -45,32 +47,56 @@ export default function SignupPage() {
     }
 
     try {
-      // 1. Create the account using their email
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
-      // 2. Immediately attach the username to their new Firebase profile
       await updateProfile(userCredential.user, {
         displayName: username
       });
 
-      // 👉 4. Send the verification email
       await sendEmailVerification(userCredential.user);
-
-      // 👉 5. Sign them out instantly to fix the "stale username" bug
-      // and prevent them from bypassing the email check!
       await signOut(auth);
 
-      // 👉 6. Show success message and clear the form
       setSuccessMsg("Account created! Please check your email to verify your account before logging in.");
+      console.log("Adding user to database with email:", email);
+      var res = await createUser({ firebase_uid: userCredential.user.uid, name: userCredential.user.displayName, email: userCredential.user.email, created_at: userCredential.user.metadata.creationTime }); // Save to DB
+      res && console.log("User successfully added to database with ID:", res.id);
+      
+      login({
+        id: res.id,
+        name: res.name,
+        email: res.email,
+        firebase_uid: res.firebase_uid,
+        rating: res.rating,
+        profile: res.profile,
+        created_at: res.created_at
+      })
       setUsername("");
       setEmail("");
       setPassword("");
 
     } catch (err) {
-      if (err.code === 'auth/email-already-in-use') {
-          setError("An account with this email already exists.");
-      } else {
-          setError("Failed to create account: " + err.message);
+      // 👉 TRANSLATING FIREBASE ERRORS INTO HUMAN-READABLE TEXT
+      console.error("Signup Error:", err.code); // Helpful for you to see in the console!
+      
+      switch (err.code) {
+        case 'auth/email-already-in-use':
+          setError("An account with this email address already exists.");
+          break;
+        case 'auth/invalid-email':
+          setError("Please enter a valid email address.");
+          break;
+        case 'auth/weak-password':
+          setError("Your password is too weak. Please use a stronger password.");
+          break;
+        case 'auth/network-request-failed':
+          setError("Network error. Please check your internet connection.");
+          break;
+        case 'auth/too-many-requests':
+          setError("Too many attempts. Please try again later.");
+          break;
+        default:
+          setError("Failed to create account. Please try again.");
+          break;
       }
     }
   };
@@ -79,9 +105,115 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     try {
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      var res = await createUser({ firebase_uid: userCredential.user.uid, name: userCredential.user.displayName, email: userCredential.user.email, created_at: userCredential.user.metadata.creationTime }); // Save to DB
+      login({
+        id: dbUser.id,
+        name: res.name,
+        email: res.email,
+        firebase_uid: res.firebase_uid,
+        rating: res.rating,
+        profile: res.profile,
+        created_at: res.created_at
+      })
       navigate("/home");
     } catch (err) {
+      // It's good practice to log the exact error to the console for yourself
+      console.error("Google Auth Error:", err); 
+      setError("Failed to sign in with Google.");
+      console.error("Google Auth Error:", err.message);
+    }
+  };
+  */
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccessMsg(""); 
+    
+    if (!username || !email || !password) {
+      return setError("Please fill out all fields.");
+    }
+    
+    if (password.length < 6) {
+      return setError("Password must be at least 6 characters long.");
+    }
+
+    try {
+      // 1. Create in Firebase
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      await updateProfile(userCredential.user, {
+        displayName: username
+      });
+
+      // 2. Save to PostgreSQL Database
+      console.log("Adding user to database with email:", email);
+      // NOTE: We don't need to save the result to Zustand yet, because we are logging them out!
+      await createUser({ 
+        firebase_uid: userCredential.user.uid, 
+        name: username, // Use the state variable since Firebase might lag updating displayName
+        email: userCredential.user.email, 
+        created_at: userCredential.user.metadata.creationTime 
+      }); 
+      
+      // 3. Send Email & Sign Out of Firebase
+      await sendEmailVerification(userCredential.user);
+      await signOut(auth);
+
+      // 4. Show success message (Do NOT call login() or navigate() here)
+      setSuccessMsg("Account created! Please check your email to verify your account before logging in.");
+      setUsername("");
+      setEmail("");
+      setPassword("");
+
+    } catch (err) {
+      console.error("Signup Error:", err.code); 
+      switch (err.code) {
+        case 'auth/email-already-in-use': setError("An account with this email address already exists."); break;
+        case 'auth/invalid-email': setError("Please enter a valid email address."); break;
+        case 'auth/weak-password': setError("Your password is too weak. Please use a stronger password."); break;
+        case 'auth/network-request-failed': setError("Network error. Please check your internet connection."); break;
+        case 'auth/too-many-requests': setError("Too many attempts. Please try again later."); break;
+        default: setError("Failed to create account. Please try again."); break;
+      }
+    }
+  };
+
+  const handleGoogleSignIn = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      // 1. Sign in with Firebase
+      const userCredential = await signInWithPopup(auth, provider);
+      
+      // 2. Upsert (Update/Insert) into PostgreSQL
+      const res = await createUser({ 
+        firebase_uid: userCredential.user.uid, 
+        name: userCredential.user.displayName, 
+        email: userCredential.user.email, 
+        created_at: userCredential.user.metadata.creationTime 
+      }); 
+      
+      // 👉 THE CRITICAL FIX: Extract .data from the Axios response!
+      const dbUser = res.data;
+      
+      // 3. Log into Zustand Store using the database ID
+      login({
+        id: dbUser.id,                  // Now this will be an actual number!
+        name: dbUser.name,
+        email: dbUser.email,
+        firebase_uid: dbUser.firebase_uid,
+        rating: dbUser.rating,
+        profile: dbUser.profile,
+        created_at: dbUser.created_at
+      });
+
+      // 4. Go to home page
+      navigate("/home");
+      
+    } catch (err) {
+      console.error("Google Auth Error:", err); 
       setError("Failed to sign in with Google.");
     }
   };
@@ -114,7 +246,7 @@ export default function SignupPage() {
                 </div>
               )}
 
-              {/* 👉 7. Render Success Message */}
+              {/* Success Message */}
               {successMsg && (
                 <div className="bg-green-500/10 border border-green-500 text-green-400 text-sm p-4 rounded-lg mb-4 text-left">
                   {successMsg}
