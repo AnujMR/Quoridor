@@ -1,8 +1,8 @@
 // api.js
 import axios from "axios";
 
-// const BASE_URL = "https://quoridor-atzg.onrender.com/api";
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = "https://quoridor-atzg.onrender.com/api";
+// const BASE_URL = "http://localhost:5000/api";
 
 export const getUsers = () => axios.get(`${BASE_URL}/users`);
 export const createUser = (data) => {

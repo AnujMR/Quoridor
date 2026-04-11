@@ -6,8 +6,8 @@ import { useAuthStore } from "../store/useAuthStore";
 import QuoridorBoard from "./quoridorBoard";
 
 // Initialize socket outside the component to prevent multiple connections on re-render
-// const socket = io("https://quoridor-atzg.onrender.com/");
-const socket = io("http://localhost:5000");
+const socket = io("https://quoridor-atzg.onrender.com/");
+// const socket = io("http://localhost:5000");
 
 export default function GameLobby() {
     const location = useLocation();

@@ -45,8 +45,8 @@ app.get("/", (req, res) => {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  // cors: { origin: "https://quoridor-frontend.onrender.com" } // Allowing only the frontend domain to connect
-  cors: { origin: "http://localhost:5173" } // Allowing only the frontend domain to connect
+  cors: { origin: "https://quoridor-frontend.onrender.com" } // Allowing only the frontend domain to connect
+  // cors: { origin: "http://localhost:5173" } // Allowing only the frontend domain to connect
 });
 
 socketHandler(io);
